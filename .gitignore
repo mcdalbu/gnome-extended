@@ -1,0 +1,6 @@
+schemas/gschemas.compiled
+*.zip
+/gnome-shell-soft@local_v*/
+/validation/
+__pycache__/
+*.pyc
