@@ -56,6 +56,12 @@ export class SoftSurface {
                     const parent = menu.actor.get_parent();
                     parent.set_child_below_sibling(this._group, menu.actor);
                     this.update();
+                } else {
+                    // The menu actor stays mapped through its exit animation.
+                    // End the separate backdrop when closing starts, including
+                    // interrupted animations and switches between panel menus.
+                    this._needsEffect = true;
+                    this._syncVisibility();
                 }
             });
             // PanelMenu rewrites the menu's max-height when opening or moving
@@ -179,10 +185,13 @@ export class SoftSurface {
     }
 
     _syncVisibility() {
-        const visible = this.menu.actor.mapped && !this._sleeping &&
+        const visible = this.menu.isOpen && this.menu.actor.mapped && !this._sleeping &&
             !Main.sessionMode.isLocked && !Main.screenShield?.active;
         this._group.visible = visible;
         if (!visible) {
+            if (this._later)
+                global.compositor.get_laters().remove(this._later);
+            this._later = 0;
             this._guard.end();
             return;
         }

@@ -2,7 +2,7 @@
 
 Extensão independente para aplicar blur dinâmico e transparência ao menu de
 **notificações/calendário** e às **configurações rápidas (Quick Settings)**.
-Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **1**.
+Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **2**.
 
 Repositório: [mcdalbu/gnome-shell-soft](https://github.com/mcdalbu/gnome-shell-soft).
 
@@ -19,7 +19,7 @@ Na pasta desta extensão:
 
 ```bash
 make zip-file
-gnome-extensions install gnome-shell-soft@local_v1.zip
+gnome-extensions install gnome-shell-soft@local_v2.zip
 ```
 
 Encerre a sessão e entre novamente para o Shell reconhecer uma extensão nova.
@@ -30,7 +30,7 @@ gnome-extensions enable gnome-shell-soft@local
 gnome-extensions prefs gnome-shell-soft@local
 ```
 
-Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v1.zip`.
+Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v2.zip`.
 Para desativar, use `gnome-extensions disable gnome-shell-soft@local`.
 
 ## Preferências
@@ -78,6 +78,11 @@ as animações. Só a cor de fundo recebe transparência. A extensão restaura o
 estilos anteriores ao desativar e remove os atores, efeitos, sinais e callbacks.
 O blur é recriado quando o menu reabre ou após suspensão e desbloqueio.
 
+Na versão 2, o blur dos dois menus desaparece assim que o fechamento começa,
+sem aguardar o fim da animação de saída do ator. A extensão cancela repinturas
+pendentes e recria o efeito na reabertura, inclusive se uma animação for
+interrompida por outra abertura ou pelo fechamento rápido do menu.
+
 A proteção contra captura de pixels de um frame anterior desativa o redesenho
 parcial apenas durante frames já agendados nos monitores com blur visível.
 Isso aumenta o trabalho de GPU nesses frames. Não há timer periódico para manter
@@ -108,7 +113,9 @@ Requer GNOME Shell 50, PyGObject, GJS/GTK/Adwaita e um renderizador disponível.
 A segunda execução simula a ausência da biblioteca opcional apenas na cópia
 temporária da extensão. Resultados e capturas são gravados em `validation/`.
 Os testes verificam a transparência e os cantos efetivamente aplicados, alinhamento
-durante translação/escala, ordem das camadas, fechamento e reabertura, alteração
+durante translação/escala, ordem das camadas, fechamento e reabertura com
+animações FULL/FADE/NONE e interrupções rápidas, ausência de blur após o início
+do fechamento em cada frame, alteração
 ao vivo, preservação de estilos externos, retomada simulada, repouso e limpeza.
 As preferências são construídas em GTK e seus vínculos bidirecionais e restauração
 de padrões são exercitados. A suspensão física precisa ser verificada na sessão

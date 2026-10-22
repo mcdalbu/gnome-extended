@@ -106,6 +106,8 @@ def test():
             raise RuntimeError('Extension did not enable; see validation/gnome50-session.log')
 
         evaluate('globalThis.soft = Main.extensionManager.lookup("gnome-shell-soft@local").stateObj; Main.overview.hide();')
+        evaluate('(async () => { globalThis.popupAnimation = '
+                 '(await import("resource:///org/gnome/shell/ui/boxpointer.js")).PopupAnimation; })()')
         time.sleep(1)
         evaluate('''(() => {
             const St = imports.gi.St;
@@ -166,6 +168,38 @@ def test():
             check(f'{key}-recreated', 'surface._effect !== previousEffect')
             evaluate('surface.menu.close();')
             time.sleep(0.4)
+
+            # Panel menus normally use FULL/FADE transitions. Waiting until the
+            # actor unmaps misses a lingering backdrop during their exit.
+            evaluate('globalThis.closeFrames = []; '
+                     'globalThis.closeFrameId = global.stage.connect("before-paint", () => '
+                     'closeFrames.push({open:surface.menu.isOpen, menuMapped:surface.menu.actor.mapped, '
+                     'blurMapped:surface._blur.mapped, blurVisible:surface._group.visible})); '
+                     'surface.menu.open(popupAnimation.FULL);')
+            time.sleep(0.3)
+            for animation in ['FULL', 'FADE', 'NONE']:
+                evaluate(f'surface.menu.close(popupAnimation.{animation});')
+                check(f'{key}-{animation.lower()}-close-immediate',
+                      '!surface.menu.isOpen && !surface._group.visible && '
+                      '!surface._blur.mapped && surface._later === 0')
+                time.sleep(0.25)
+                evaluate('surface.menu.open(popupAnimation.FULL);')
+                time.sleep(0.3)
+            evaluate('surface.menu.close(popupAnimation.FULL); surface.menu.open(popupAnimation.FULL);')
+            check(f'{key}-interrupted-close-reopen', 'surface.menu.isOpen && surface._group.visible')
+            time.sleep(0.3)
+            evaluate('surface.menu.close(popupAnimation.FULL);')
+            time.sleep(0.03)
+            evaluate('surface.menu.open(popupAnimation.FULL);')
+            time.sleep(0.03)
+            evaluate('surface.menu.close(popupAnimation.FULL);')
+            check(f'{key}-interrupted-open-close', '!surface._group.visible && !surface._blur.mapped')
+            time.sleep(0.3)
+            evaluate('global.stage.disconnect(closeFrameId);')
+            results[f'{key}-closing-frames'] = evaluate('closeFrames')
+            assert any(not frame['open'] for frame in results[f'{key}-closing-frames'])
+            assert all(frame['open'] or not frame['blurMapped']
+                       for frame in results[f'{key}-closing-frames']), 'Blur remains after menu close'
 
         evaluate('soft._settings.set_int("opacity", 35); soft._settings.set_int("blur-radius", 47); '
                  'soft._settings.set_int("corner-radius", 24); soft._settings.set_int("brightness", 75);')

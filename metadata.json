@@ -4,6 +4,6 @@
     "url": "https://github.com/mcdalbu/gnome-shell-soft",
     "description": "Blur dinâmico e transparência no painel de notificações/calendário e no Quick Settings, com ajustes independentes do Dash to Dock Soft.",
     "shell-version": ["45", "46", "47", "48", "49", "50"],
-    "version": 1,
+    "version": 2,
     "settings-schema": "org.gnome.shell.extensions.gnome-shell-soft"
 }
