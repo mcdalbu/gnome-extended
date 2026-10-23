@@ -5,6 +5,7 @@ Run with /usr/bin/python3 tests/headless.py. Requires GNOME Shell 50, PyGObject
 and a usable renderer. The temporary helper enables Eval only on the test bus.
 """
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -52,14 +53,18 @@ export default class Helper extends Extension {
             # in this test's private runtime. Remove only that temporary mount.
             document_mount = runtime / 'doc'
             if os.path.ismount(document_mount):
-                subprocess.run(['fusermount3', '-u', str(document_mount)], check=True)
+                unmount = subprocess.run(['fusermount3', '-u', str(document_mount)], capture_output=True)
+                # The portal may unmount itself between ismount() and fusermount.
+                if unmount.returncode and os.path.ismount(document_mount):
+                    unmount.check_returncode()
             time.sleep(0.3)
 
 
 def test():
     import gi
     gi.require_version('Gio', '2.0')
-    from gi.repository import Gio, GLib
+    gi.require_version('GdkPixbuf', '2.0')
+    from gi.repository import Gio, GLib, GdkPixbuf
 
     shell_settings = Gio.Settings.new('org.gnome.shell')
     shell_settings.set_strv('enabled-extensions', ['soft-test-helper@local', UUID])
@@ -91,6 +96,19 @@ def test():
         results[name] = value
         if not value:
             raise AssertionError(name)
+
+    def screenshot(name):
+        path = output / f'{variant}-{name}.png'
+        evaluate('globalThis.captureDone=false; '
+                 f'(async()=>{{const stream=Gio.File.new_for_path({json.dumps(str(path))}).replace(null,false, '
+                 'Gio.FileCreateFlags.REPLACE_DESTINATION,null);await new Shell.Screenshot().screenshot(false,stream);'
+                 'stream.close(null);globalThis.captureDone=true;})()')
+        deadline = time.monotonic() + 5
+        while not evaluate('captureDone'):
+            if time.monotonic() > deadline:
+                raise RuntimeError('Screenshot timed out')
+            time.sleep(0.03)
+        return GdkPixbuf.Pixbuf.new_from_file(str(path))
 
     try:
         for _ in range(100):
@@ -163,6 +181,7 @@ def test():
             evaluate('globalThis.previousEffect = surface._effect; surface.menu.close();')
             time.sleep(0.4)
             check(f'{key}-hidden', '!surface._group.visible && !surface._blur.mapped')
+            check(f'{key}-hidden-no-window-signals', 'surface._windows.size === 0')
             evaluate('surface.menu.open();')
             time.sleep(0.4)
             check(f'{key}-recreated', 'surface._effect !== previousEffect')
@@ -238,6 +257,91 @@ def test():
         evaluate('global.stage.disconnect(frameId);')
         if results['idle-frames-open'] > 2:
             raise AssertionError('Blur drives idle repaints')
+
+        # Window events outside the backdrop must not invalidate its capture.
+        # A real Clutter actor exercises transformed geometry and GObject signals.
+        evaluate('''(() => {
+            globalThis.probeWindow = new imports.gi.St.Widget({x:2000, y:100, width:120, height:120});
+            probeWindow.get_meta_window = () => null;
+            Main.uiGroup.insert_child_below(probeWindow, surface._group);
+            surface._trackWindow(probeWindow);
+        })()''')
+        time.sleep(0.3)
+        check('distant-window-no-repaint', 'probeWindow.translation_x = 20; surface._later === 0')
+        check('window-entering-repaints', '''(() => {
+            const [x,y] = surface._blur.get_transformed_position();
+            probeWindow.translation_x = x - probeWindow.x;
+            probeWindow.translation_y = y - probeWindow.y;
+            return surface._later !== 0;
+        })()''')
+        time.sleep(0.3)
+        check('window-leaving-repaints', 'probeWindow.translation_x = 2000; surface._later !== 0')
+        time.sleep(0.3)
+        check('distant-window-removal-no-repaint', 'probeWindow.destroy(); surface._later === 0 && '
+              '!surface._windows.has(probeWindow)')
+
+        # Native Shell.BlurEffect lacks rounded clipping, so use square corners
+        # there: culling must never remove blur still visible around the fill.
+        evaluate('soft._settings.set_int("opacity",100); '
+                 'if (!surface._hasCorners) soft._settings.set_int("corner-radius",0);')
+        time.sleep(0.8)
+        evaluate('global.stage.queue_redraw();')
+        time.sleep(0.2)
+        check('opaque-blur-hidden', '!surface._group.visible && !surface._blur.mapped && surface._later === 0')
+        check('opaque-no-window-signals', 'surface._windows.size === 0')
+        # Compare the actual menu pixels with and without the covered effect.
+        evaluate('surface._opaqueUntil=GLib.get_monotonic_time()+5000000; '
+                 'surface._syncVisibility(); surface._queueRepaint();')
+        time.sleep(0.2)
+        with_blur = screenshot('opaque-with-blur')
+        evaluate('surface._opaqueUntil=0; global.stage.queue_redraw();')
+        time.sleep(0.2)
+        without_blur = screenshot('opaque-without-blur')
+        box = evaluate('[...surface.menu.box.get_transformed_position(), '
+                       '...surface.menu.box.get_transformed_size()]')
+        pixels = [image.get_pixels() for image in [with_blur, without_blur]]
+        channels = with_blur.get_n_channels()
+        stride = with_blur.get_rowstride()
+        radius = evaluate('surface.menu.box.get_theme_node().get_border_radius(0)')
+        deltas = []
+        interior_changes = 0
+        for y in range(max(0, int(box[1])), min(with_blur.get_height(), int(box[1] + box[3]))):
+            for x in range(max(0, int(box[0])), min(with_blur.get_width(), int(box[0] + box[2]))):
+                offset = y * stride + x * channels
+                delta = max(abs(pixels[0][offset + c] - pixels[1][offset + c]) for c in range(3))
+                deltas.append(delta)
+                if delta:
+                    # Removing a second rounded layer can change antialiasing
+                    # at the contour. No pixels away from that edge may change.
+                    qx = abs(x + 0.5 - box[0] - box[2] / 2) - (box[2] / 2 - radius)
+                    qy = abs(y + 0.5 - box[1] - box[3] / 2) - (box[3] / 2 - radius)
+                    edge_distance = math.hypot(max(qx, 0), max(qy, 0)) + min(max(qx, qy), 0) - radius
+                    if abs(edge_distance) > 2:
+                        interior_changes += 1
+        results['opaque-culling-pixels'] = {'changed': sum(delta > 0 for delta in deltas),
+                                           'max-channel-delta': max(deltas),
+                                           'changes-away-from-edge': interior_changes}
+        assert interior_changes == 0, 'Opaque culling changed pixels away from the antialiased contour'
+        check('opaque-no-redraw-guard', '''(() => {
+            const Clutter = imports.gi.Clutter;
+            const flags = Clutter.get_debug_flags()[1];
+            return (flags & Clutter.DrawDebugFlag.DISABLE_CLIPPED_REDRAWS) === 0;
+        })()''')
+        evaluate('globalThis.frames = 0; frameId = global.stage.connect("after-paint", () => frames++);')
+        time.sleep(1.5)
+        results['idle-frames-opaque'] = evaluate('frames')
+        evaluate('global.stage.disconnect(frameId);')
+        assert results['idle-frames-opaque'] <= 2
+        evaluate('soft._settings.set_int("opacity",35);')
+        time.sleep(0.4)
+        check('transparent-blur-restored', 'surface._group.visible && surface._blur.mapped')
+        if not evaluate('surface._hasCorners'):
+            evaluate('soft._settings.set_int("corner-radius",24); soft._settings.set_int("opacity",100);')
+            time.sleep(0.8)
+            evaluate('global.stage.queue_redraw();')
+            time.sleep(0.2)
+            check('native-uncovered-corners-kept', 'surface._blur.mapped')
+            evaluate('soft._settings.set_int("opacity",35);')
 
         evaluate('surface.menu.close(); soft._settings.set_boolean("notifications", false);')
         time.sleep(0.4)

@@ -1,5 +1,5 @@
 UUID = gnome-shell-soft@local
-VERSION = 2
+VERSION = 3
 ZIP = $(UUID)_v$(VERSION).zip
 SOURCES = metadata.json extension.js softSurface.js signals.js blurBackend.js blurRedrawGuard.js prefs.js COPYING README.md
 

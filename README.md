@@ -2,7 +2,7 @@
 
 Extensão independente para aplicar blur dinâmico e transparência ao menu de
 **notificações/calendário** e às **configurações rápidas (Quick Settings)**.
-Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **2**.
+Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **3**.
 
 Repositório: [mcdalbu/gnome-shell-soft](https://github.com/mcdalbu/gnome-shell-soft).
 
@@ -19,7 +19,7 @@ Na pasta desta extensão:
 
 ```bash
 make zip-file
-gnome-extensions install gnome-shell-soft@local_v2.zip
+gnome-extensions install gnome-shell-soft@local_v3.zip
 ```
 
 Encerre a sessão e entre novamente para o Shell reconhecer uma extensão nova.
@@ -30,7 +30,7 @@ gnome-extensions enable gnome-shell-soft@local
 gnome-extensions prefs gnome-shell-soft@local
 ```
 
-Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v2.zip`.
+Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v3.zip`.
 Para desativar, use `gnome-extensions disable gnome-shell-soft@local`.
 
 ## Preferências
@@ -87,6 +87,21 @@ A proteção contra captura de pixels de um frame anterior desativa o redesenho
 parcial apenas durante frames já agendados nos monitores com blur visível.
 Isso aumenta o trabalho de GPU nesses frames. Não há timer periódico para manter
 a tela repintando. Menus fechados não mantêm a proteção ativa.
+
+Na versão 3, mudanças de janelas distantes não solicitam repintura do blur.
+Menus fechados ou com blur encoberto não mantêm sinais conectados às janelas;
+o acompanhamento é reconstruído ao mostrar o efeito novamente.
+O filtro inclui a margem de amostragem e as transformações das janelas; sair
+da região ainda invalida a captura anterior. As interseções são atualizadas
+quando a geometria ou a intensidade do blur muda.
+Com fundo em 100% de opacidade, a camada de blur e sua proteção de redesenho
+são ocultadas nos frames seguintes ao término da transição do fundo, quando
+o fundo cobre o efeito inteiro. Sem recorte arredondado no backend, o efeito
+continua ativo nos cantos expostos. Voltar à transparência restaura o blur.
+Em cantos arredondados opacos, retirar a segunda camada pode alterar apenas
+os pixels de suavização do contorno, sem mudar o interior da superfície.
+Essas otimizações não introduzem timers periódicos nem removem a proteção
+necessária ao blur visível; não representam uma medição de ganho percentual.
 
 ## Desenvolvimento
 

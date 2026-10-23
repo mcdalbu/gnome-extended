@@ -30,6 +30,7 @@ export class SoftSurface {
         this._guard = new BlurRedrawGuard(Clutter, Meta);
         this._later = 0;
         this._styleUntil = 0;
+        this._opaqueUntil = 0;
         this._needsEffect = false;
         this._originalBoxStyle = menu.box.get_style();
         this._originalMenuStyle = menu.actor.get_style();
@@ -102,6 +103,7 @@ export class SoftSurface {
                 this._signals.connect(Main.screenShield, 'active-changed', () => this._recover());
 
             this._signals.connect(global.stage, 'before-update', (_stage, view) => {
+                this._syncVisibility();
                 this._guard.begin(this._blur, view);
                 if (this._blur.mapped && GLib.get_monotonic_time() < this._styleUntil)
                     this._effect.queue_repaint();
@@ -115,9 +117,7 @@ export class SoftSurface {
             const removed = added === 'child-added' ? 'child-removed' : 'actor-removed';
             this._signals.connect(global.window_group, added, (_group, actor) => this._trackWindow(actor));
             this._signals.connect(global.window_group, removed, (_group, actor) => {
-                this._windows.get(actor)?.clear();
-                this._windows.delete(actor);
-                this._queueRepaint();
+                this._untrackWindow(actor);
             });
             for (const actor of global.get_window_actors())
                 this._trackWindow(actor);
@@ -172,8 +172,13 @@ export class SoftSurface {
         actor.set_style(this._appliedMenuStyle);
         this._settingStyle = false;
         this._updateEffect();
+        // St's theme node reports the target alpha, not the intermediate
+        // color of a CSS transition. Keep the backdrop until it has settled.
+        this._opaqueUntil = GLib.get_monotonic_time() +
+            (box.get_theme_node().get_transition_duration() + 50) * 1000;
         this._syncVisibility();
         this._syncGeometry();
+        this._refreshWindowIntersections();
         this._queueRepaint();
     }
 
@@ -185,15 +190,32 @@ export class SoftSurface {
     }
 
     _syncVisibility() {
-        const visible = this.menu.isOpen && this.menu.actor.mapped && !this._sleeping &&
+        const active = this.menu.isOpen && this.menu.actor.mapped && !this._sleeping &&
             !Main.sessionMode.isLocked && !Main.screenShield?.active;
+        const opaque = active && this._settings.get_int('opacity') === 100 &&
+            this.menu.box.get_paint_opacity() === 255 &&
+            (this._hasCorners || this._settings.get_int('corner-radius') === 0) &&
+            GLib.get_monotonic_time() >= this._opaqueUntil;
+        const visible = active && !opaque;
+        const wasVisible = this._group.visible;
         this._group.visible = visible;
         if (!visible) {
+            if (wasVisible) {
+                for (const {signals} of this._windows.values())
+                    signals.clear();
+                this._windows.clear();
+            }
             if (this._later)
                 global.compositor.get_laters().remove(this._later);
             this._later = 0;
             this._guard.end();
             return;
+        }
+        if (!wasVisible) {
+            this._needsEffect = true;
+            for (const actor of global.get_window_actors())
+                this._trackWindow(actor);
+            this._refreshWindowIntersections();
         }
         if (this._needsEffect)
             this._replaceEffect();
@@ -222,6 +244,7 @@ export class SoftSurface {
             return;
         this._blur.set_position(left, top);
         this._blur.set_size(values[2], values[3]);
+        this._refreshWindowIntersections();
         this._queueRepaint();
     }
 
@@ -238,20 +261,64 @@ export class SoftSurface {
         });
     }
 
+    _windowIntersectsBlur(actor) {
+        if (!actor.mapped)
+            return false;
+        // Use transformed actor bounds so translations/scaling are included.
+        // Include a conservative sampling margin, as on the dock.
+        const [x, y] = actor.get_transformed_position();
+        const [width, height] = actor.get_transformed_size();
+        const [bx, by] = this._blur.get_transformed_position();
+        const [bw, bh] = this._blur.get_transformed_size();
+        if (![x, y, width, height, bx, by, bw, bh].every(Number.isFinite))
+            return true;
+        const transformScale = Math.max(1, bw / this._blur.width || 1, bh / this._blur.height || 1);
+        const margin = Math.max(64, 3 * this._settings.get_int('blur-radius')) *
+            this._context.scale_factor * transformScale;
+        return x < bx + bw + margin && x + width > bx - margin &&
+            y < by + bh + margin && y + height > by - margin;
+    }
+
+    _refreshWindowIntersections() {
+        for (const [actor, record] of this._windows)
+            record.affected = this._windowIntersectsBlur(actor);
+    }
+
+    _untrackWindow(actor) {
+        const record = this._windows.get(actor);
+        if (!record)
+            return;
+        record.signals.clear();
+        this._windows.delete(actor);
+        if (record.affected)
+            this._queueRepaint();
+    }
+
     _trackWindow(actor) {
-        if (this._windows.has(actor) || !actor.get_meta_window)
+        if (!this._group.visible || this._windows.has(actor) || !actor.get_meta_window)
             return;
         const signals = new Signals();
-        this._windows.set(actor, signals);
-        for (const signal of ['notify::allocation', 'notify::visible', 'notify::mapped',
-            'notify::translation-x', 'notify::translation-y'])
-            signals.connect(actor, signal, () => this._queueRepaint());
-        signals.connect(actor, 'destroy', () => {
-            signals.clear();
-            this._windows.delete(actor);
+        const record = {signals, affected: this._windowIntersectsBlur(actor)};
+        this._windows.set(actor, record);
+        const update = () => {
+            if (!this._group.visible)
+                return;
+            const affected = this._windowIntersectsBlur(actor);
+            // Moving away still invalidates the old footprint once.
+            if (affected || record.affected)
+                this._queueRepaint();
+            record.affected = affected;
+        };
+        const changes = ['notify::allocation', 'notify::visible', 'notify::mapped',
+            'notify::opacity', 'notify::translation-x', 'notify::translation-y',
+            'notify::scale-x', 'notify::scale-y'];
+        if (GObject.signal_lookup('damaged', actor))
+            changes.push('damaged');
+        for (const signal of changes)
+            signals.connect(actor, signal, update);
+        signals.connect(actor, 'destroy', () => this._untrackWindow(actor));
+        if (record.affected)
             this._queueRepaint();
-        });
-        this._queueRepaint();
     }
 
     _trackChild(actor) {
@@ -274,6 +341,10 @@ export class SoftSurface {
             signals.connect(actor, 'style-changed', () => {
                 const duration = actor.get_theme_node().get_transition_duration() + 50;
                 this._styleUntil = Math.max(this._styleUntil, GLib.get_monotonic_time() + duration * 1000);
+                if (actor === this.menu.box) {
+                    this._opaqueUntil = this._styleUntil;
+                    this._syncVisibility();
+                }
                 this._queueRepaint();
             });
         }
@@ -293,7 +364,9 @@ export class SoftSurface {
             return;
         this._destroyed = true;
         this._signals.clear();
-        for (const signals of [...this._children.values(), ...this._windows.values()])
+        for (const signals of this._children.values())
+            signals.clear();
+        for (const {signals} of this._windows.values())
             signals.clear();
         this._children.clear();
         this._windows.clear();
