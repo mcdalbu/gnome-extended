@@ -2,7 +2,7 @@
 
 Extensão independente para aplicar blur dinâmico e transparência ao menu de
 **notificações/calendário** e às **configurações rápidas (Quick Settings)**.
-Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **3**.
+Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **4**.
 
 Repositório: [mcdalbu/gnome-shell-soft](https://github.com/mcdalbu/gnome-shell-soft).
 
@@ -19,7 +19,7 @@ Na pasta desta extensão:
 
 ```bash
 make zip-file
-gnome-extensions install gnome-shell-soft@local_v3.zip
+gnome-extensions install gnome-shell-soft@local_v4.zip
 ```
 
 Encerre a sessão e entre novamente para o Shell reconhecer uma extensão nova.
@@ -30,7 +30,7 @@ gnome-extensions enable gnome-shell-soft@local
 gnome-extensions prefs gnome-shell-soft@local
 ```
 
-Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v3.zip`.
+Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v4.zip`.
 Para desativar, use `gnome-extensions disable gnome-shell-soft@local`.
 
 ## Preferências
@@ -140,3 +140,20 @@ Código derivado do Dash to Dock Soft: `blurBackend.js` e `blurRedrawGuard.js`.
 O método de backend acompanha a integração GNOME Rounded Blur do
 [Blur my Shell](https://github.com/aunetx/blur-my-shell).
 Licença: GPL-2.0-or-later; veja `COPYING`.
+
+## Escala comum com Dash to Dock Soft (versão 4)
+
+O módulo `blurBackend.js` mantém o mesmo cálculo nas duas extensões: blur 24
+representa raio 24 em pixels lógicos (multiplicado pela escala do Shell;
+no backend antigo, sigma é metade do raio). Opacidade 67% representa alfa 0,67;
+transparência é seu complemento, 33%. Não altera a opacidade de textos e ícones.
+Brilho 67% representa 0,67 nas duas extensões; o padrão continua em 85%.
+No dock, selecione transparência fixa para comparar o percentual: os modos
+padrão e dinâmico continuam seguindo o tema e a proximidade de janelas.
+Cores, cantos e conteúdo atrás de cada superfície também afetam sua aparência.
+Os ajustes permanecem independentes entre as extensões.
+
+A geometria do blur é atualizada antes da preparação do frame e novamente antes
+da pintura, acompanhando o deslocamento de abertura do BoxPointer. Alterações
+nessa etapa invalidam a captura imediatamente. Imagens de fundo do tema são
+removidas da superfície para que não encubram o alfa configurado.

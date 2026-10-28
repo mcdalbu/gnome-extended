@@ -22,7 +22,7 @@ def stage():
     with tempfile.TemporaryDirectory(prefix='gnome-shell-soft-test-', ignore_cleanup_errors=True) as temporary:
         base = Path(temporary)
         extension = base / 'data/gnome-shell/extensions' / UUID
-        shutil.copytree(ROOT, extension, ignore=shutil.ignore_patterns('*.zip', 'validation', 'tests'))
+        shutil.copytree(ROOT, extension, ignore=shutil.ignore_patterns('*.zip', '.git', '*@local_v*', 'validation', 'tests'))
         if os.environ.get('SOFT_TEST_NATIVE'):
             backend = extension / 'blurBackend.js'
             backend.write_text(backend.read_text().replace('gi://Blur', 'gi://SoftTestMissingBlur'))
@@ -144,8 +144,22 @@ def test():
                                       'return {type: s._effect.constructor.name, corners: s._hasCorners, '
                                       'radiusProperty: s._radiusProperty}; })()')
         for key in ['notifications', 'quick-settings']:
-            evaluate(f'globalThis.surface = soft._surfaces.get("{key}"); surface.menu.open();')
+            evaluate(f'globalThis.surface = soft._surfaces.get("{key}"); '
+                     'globalThis.openFrames = []; '
+                     'globalThis.openFrameId = global.stage.connect("before-paint", () => { '
+                     'if (!surface.menu.isOpen || !surface.menu.box.mapped || '
+                     'surface.menu.actor.get_paint_opacity() === 0) return; '
+                     'const a=[...surface.menu.box.get_transformed_position(),...surface.menu.box.get_transformed_size()]; '
+                     'const b=[...surface._blur.get_transformed_position(),...surface._blur.get_transformed_size()]; '
+                     'openFrames.push({mapped:surface._blur.mapped, '
+                     'aligned:a.every((v,i)=>Math.abs(v-b[i])<1), opacity:surface._group.opacity}); '
+                     '}); surface.menu.open();')
             time.sleep(0.6)
+            evaluate('global.stage.disconnect(openFrameId);')
+            results[f'{key}-opening-frames'] = evaluate('openFrames')
+            assert results[f'{key}-opening-frames'], 'No opening frames observed'
+            assert all(frame['mapped'] and frame['aligned']
+                       for frame in results[f'{key}-opening-frames']), 'Blur missed an opening frame'
             check(f'{key}-mapped', 'surface._blur.mapped && surface._blur.width > 100 && surface._blur.height > 100')
             check(f'{key}-geometry', '''(() => {
                 const [x,y] = surface.menu.box.get_transformed_position();

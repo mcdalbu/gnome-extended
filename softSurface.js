@@ -8,7 +8,7 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as LoginManager from 'resource:///org/gnome/shell/misc/loginManager.js';
 
-import {loadBlurBackend} from './blurBackend.js';
+import {loadBlurBackend, applyBlurParameters, opacityFraction} from './blurBackend.js';
 import {BlurRedrawGuard} from './blurRedrawGuard.js';
 import {Signals} from './signals.js';
 
@@ -104,6 +104,7 @@ export class SoftSurface {
 
             this._signals.connect(global.stage, 'before-update', (_stage, view) => {
                 this._syncVisibility();
+                this._syncGeometry();
                 this._guard.begin(this._blur, view);
                 if (this._blur.mapped && GLib.get_monotonic_time() < this._styleUntil)
                     this._effect.queue_repaint();
@@ -144,9 +145,8 @@ export class SoftSurface {
 
     _updateEffect() {
         const scale = this._context.scale_factor;
-        const radius = this._settings.get_int('blur-radius') * scale;
-        this._effect[this._radiusProperty] = this._radiusProperty === 'radius' ? radius : radius / 2;
-        this._effect.brightness = this._settings.get_int('brightness') / 100;
+        applyBlurParameters(this._effect, this._radiusProperty,
+            this._settings.get_int('blur-radius'), scale, this._settings.get_int('brightness'));
         if (this._hasCorners)
             this._effect.corner_radius = this._settings.get_int('corner-radius') * scale;
     }
@@ -159,10 +159,10 @@ export class SoftSurface {
         box.set_style(this._originalBoxStyle);
         actor.set_style(this._originalMenuStyle);
         const color = box.get_theme_node().get_background_color();
-        const alpha = this._settings.get_int('opacity') / 100;
+        const alpha = opacityFraction(this._settings.get_int('opacity'));
         const radius = this._settings.get_int('corner-radius');
         this._boxSuffix = 'background-color: ' +
-            `rgba(${color.red}, ${color.green}, ${color.blue}, ${alpha}); border-radius: ${radius}px;`;
+            `rgba(${color.red}, ${color.green}, ${color.blue}, ${alpha}); border-radius: ${radius}px; background-image: none;`;
         this._appliedBoxStyle = appendStyle(this._originalBoxStyle, this._boxSuffix);
         box.set_style(this._appliedBoxStyle);
         // Older themes draw a second opaque surface in BoxPointer's Cairo
@@ -245,7 +245,9 @@ export class SoftSurface {
         this._blur.set_position(left, top);
         this._blur.set_size(values[2], values[3]);
         this._refreshWindowIntersections();
-        this._queueRepaint();
+        // Geometry may change in before-paint, after BEFORE_REDRAW callbacks.
+        // Invalidate the capture for this frame, including the first open frame.
+        this._effect.queue_repaint();
     }
 
     _queueRepaint() {
