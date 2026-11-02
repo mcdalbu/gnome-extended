@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import GObject from 'gi://GObject';
+import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as AppDisplay from 'resource:///org/gnome/shell/ui/appDisplay.js';
 import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
@@ -58,6 +59,7 @@ export class ShellSurfaces {
     }
 
     start() {
+        this._signals.connect(St.Settings.get(), 'notify::color-scheme', () => this.sync());
         this._watch(Main.panel, 'top-panel');
         // Discover surfaces on creation/mapping, without a polling timer.
         for (const group of new Set([Main.uiGroup, Main.layoutManager.overviewGroup,
@@ -173,7 +175,10 @@ export class ShellSurfaces {
     }
 
     _refresh(record) {
-        const enabled = this._settings.get_boolean(record.key);
+        const light = St.Settings.get().color_scheme === St.SystemColorScheme.PREFER_LIGHT;
+        const enabled = this._settings.get_boolean(record.key) &&
+            (record.key !== 'top-panel' ||
+                this._settings.get_boolean(light ? 'panel-enabled-light' : 'panel-enabled-dark'));
         if (!enabled) {
             record.surface?.destroy();
             record.surface = null;

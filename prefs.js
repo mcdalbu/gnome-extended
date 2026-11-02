@@ -35,6 +35,20 @@ export default class GnomeShellSoftPreferences extends ExtensionPreferences {
             settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
             surfaces.add(row);
         }
+        const panelThemes = new Adw.PreferencesGroup({
+            title: 'Barra superior por tema',
+            description: 'Ao desativar um tema, a barra usa o visual padrão do GNOME nesse tema.',
+        });
+        page.add(panelThemes);
+        for (const [key, title] of [
+            ['panel-enabled-dark', 'Blur e transparência no tema escuro'],
+            ['panel-enabled-light', 'Blur e transparência no tema claro'],
+        ]) {
+            const row = new Adw.SwitchRow({title});
+            settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+            settings.bind('top-panel', row, 'sensitive', Gio.SettingsBindFlags.GET);
+            panelThemes.add(row);
+        }
         const panel = new Adw.PreferencesGroup({
             title: 'Opacidade automática da barra superior',
             description: 'Com uma janela maximizada ou em tela cheia no monitor da barra e na área de trabalho atual.',
@@ -74,7 +88,7 @@ export default class GnomeShellSoftPreferences extends ExtensionPreferences {
             for (const key of ['notifications', 'quick-settings', 'system-dialogs',
                 'notification-banners', 'app-folders', 'top-panel', 'window-switcher',
                 'osd-windows', 'workspace-switcher', 'screenshot-ui', 'popup-menus',
-                'overview-background', 'lock-screen', 'panel-opaque-dark', 'panel-opaque-light', 'blur-radius',
+                'overview-background', 'lock-screen', 'panel-enabled-dark', 'panel-enabled-light', 'panel-opaque-dark', 'panel-opaque-light', 'blur-radius',
                 'opacity', 'brightness'])
                 settings.reset(key);
         });

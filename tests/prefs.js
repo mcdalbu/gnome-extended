@@ -35,7 +35,7 @@ function assert(condition, message) {
     if (!condition)
         throw new Error(message);
 }
-assert(spins.length === 3 && switches.length === 15, 'All controls exist');
+assert(spins.length === 3 && switches.length === 17, 'All controls exist');
 const keys = ['blur-radius', 'opacity', 'brightness'];
 for (const [index, key] of keys.entries()) {
     const row = spins[index];
@@ -48,7 +48,7 @@ for (const [index, key] of keys.entries()) {
 const surfaceKeys = ['notifications', 'quick-settings', 'system-dialogs',
     'notification-banners', 'app-folders', 'top-panel', 'window-switcher',
     'osd-windows', 'workspace-switcher', 'screenshot-ui', 'popup-menus',
-    'overview-background', 'lock-screen', 'panel-opaque-dark', 'panel-opaque-light'];
+    'overview-background', 'lock-screen', 'panel-enabled-dark', 'panel-enabled-light', 'panel-opaque-dark', 'panel-opaque-light'];
 for (const [index, key] of surfaceKeys.entries()) {
     assert(switches[index].active === settings.get_boolean(key), `${key}: default binding`);
     switches[index].active = false;

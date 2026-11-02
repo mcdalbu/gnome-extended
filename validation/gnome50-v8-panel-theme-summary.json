@@ -1,0 +1,18 @@
+{
+  "version": "8",
+  "passed": true,
+  "checks": {
+    "panel-theme-dark-disabled-restores-native": true,
+    "panel-theme-light-independent": true,
+    "panel-theme-both-disabled": true,
+    "panel-theme-dark-remains-disabled": true,
+    "panel-theme-dark-reenabled": true,
+    "panel-theme-light-remains-disabled": true,
+    "panel-theme-master-disables-both": true,
+    "preferences": {
+      "passed": true,
+      "output": "Preferences: controls, defaults, bidirectional bindings and reset passed"
+    }
+  },
+  "zip_sha256": "3d7a383f46d9c874b9848c1e937954a61fe05c460c8a491929192a0298d1a717"
+}

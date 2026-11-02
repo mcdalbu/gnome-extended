@@ -6,7 +6,7 @@ Extensão independente para aplicar blur dinâmico e transparência aos menus de
 **alternador de janelas**, **volume/brilho**, **troca de área de trabalho**,
 **menus contextuais**, **captura de tela**, **fundo do overview/pesquisa** e
 **papel de parede da tela de bloqueio**.
-Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **7**.
+Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **8**.
 
 Repositório: [mcdalbu/gnome-shell-soft](https://github.com/mcdalbu/gnome-shell-soft).
 
@@ -23,7 +23,7 @@ Na pasta desta extensão:
 
 ```bash
 make zip-file
-gnome-extensions install gnome-shell-soft@local_v7.zip
+gnome-extensions install gnome-shell-soft@local_v8.zip
 ```
 
 Encerre a sessão e entre novamente para o Shell reconhecer uma extensão nova.
@@ -34,7 +34,7 @@ gnome-extensions enable gnome-shell-soft@local
 gnome-extensions prefs gnome-shell-soft@local
 ```
 
-Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v7.zip`.
+Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v8.zip`.
 Para desativar, use `gnome-extensions disable gnome-shell-soft@local`.
 
 ## Preferências
@@ -50,6 +50,8 @@ As alterações são aplicadas ao vivo e salvas no schema próprio
 | Notificações flutuantes | Ativado | Ativado/desativado |
 | Pastas de aplicativos | Ativado | Ativado/desativado |
 | Barra superior | Ativado | Ativado/desativado |
+| Blur e transparência da barra no tema escuro | Ativado | Ativado/desativado |
+| Blur e transparência da barra no tema claro | Ativado | Ativado/desativado |
 | Alternador de janelas | Ativado | Ativado/desativado |
 | Volume e brilho | Desativado | Ativado/desativado |
 | Troca de área de trabalho | Desativado | Ativado/desativado |
@@ -211,7 +213,7 @@ são liberados quando seus atores são destruídos. A barra superior visível ma
 a proteção contra redesenho parcial nos frames existentes: pode aumentar o custo
 de GPU durante atualizações da tela. Não há benchmark de ganho de desempenho.
 
-Gerar: `make zip-file`. Pacote: `gnome-shell-soft@local_v7.zip`.
+Gerar: `make zip-file`. Pacote: `gnome-shell-soft@local_v8.zip`.
 O UUID e as configurações existentes são preservados. Para voltar, reinstale a
 beta 5-beta.1 ou a versão 4 e reinicie a sessão.
 
@@ -376,5 +378,16 @@ Publica os recursos e correções validados até a beta 7-beta.5: controles
 independentes de blur nas superfícies do Shell, cantos nativos, opacidade da
 barra por tema e transição conjunta de cor e transparência.
 
-Instalação: `gnome-extensions install --force gnome-shell-soft@local_v7.zip`.
+Instalação: `gnome-extensions install --force gnome-shell-soft@local_v8.zip`.
 Encerre a sessão e entre novamente após atualizar.
+
+
+## Versão 8: barra superior por tema
+
+Em **Barra superior por tema**, os controles **Blur e transparência no tema escuro**
+e **Blur e transparência no tema claro** permitem aplicar o efeito somente nos
+respectivos temas. Ambos vêm ativados. Ao desligar um deles, a barra recupera o
+visual nativo do GNOME nesse tema; a troca de tema aplica a escolha automaticamente.
+O controle geral **Barra superior** continua desativando o efeito nos dois temas.
+As opções de opacidade automática continuam valendo nos temas com o efeito ativo,
+incluindo o fade de cor e transparência e o desaparecimento no overview.

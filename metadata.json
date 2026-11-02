@@ -11,9 +11,9 @@
         "49",
         "50"
     ],
-    "version": 7,
+    "version": 8,
     "settings-schema": "org.gnome.shell.extensions.gnome-shell-soft",
-    "version-name": "7",
+    "version-name": "8",
     "session-modes": [
         "user",
         "unlock-dialog"

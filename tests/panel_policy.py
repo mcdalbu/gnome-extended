@@ -33,6 +33,32 @@ def test_panel_policy(evaluate, check, screenshot, results):
              'soft._settings.set_boolean("panel-opaque-light",false); '
              'globalThis.policyPanel=()=>findSoft("top-panel");')
     wait('imports.gi.St.Settings.get().color_scheme===imports.gi.St.SystemColorScheme.PREFER_DARK')
+    evaluate('globalThis.nativePanelStyle=policyPanel()._originalBoxStyle; '
+             'soft._settings.set_boolean("panel-enabled-dark",false);')
+    check('panel-theme-dark-disabled-restores-native',
+          '!policyPanel() && Main.panel.get_style()===nativePanelStyle && '
+          '!Main.layoutManager.panelBox.get_parent().get_children().some(a=>a.name==="soft-top-panel-group")')
+    evaluate('policyInterface.set_string("color-scheme","prefer-light");')
+    wait('imports.gi.St.Settings.get().color_scheme===imports.gi.St.SystemColorScheme.PREFER_LIGHT && !!policyPanel()')
+    check('panel-theme-light-independent', '!!policyPanel()')
+    evaluate('soft._settings.set_boolean("panel-enabled-light",false);')
+    check('panel-theme-both-disabled', '!policyPanel()')
+    evaluate('policyInterface.set_string("color-scheme","prefer-dark");')
+    wait('imports.gi.St.Settings.get().color_scheme===imports.gi.St.SystemColorScheme.PREFER_DARK')
+    check('panel-theme-dark-remains-disabled', '!policyPanel()')
+    evaluate('soft._settings.set_boolean("panel-enabled-dark",true);')
+    wait('!!policyPanel()')
+    check('panel-theme-dark-reenabled', 'policyPanel()._panelAlpha===0.55')
+    evaluate('policyInterface.set_string("color-scheme","prefer-light");')
+    wait('imports.gi.St.Settings.get().color_scheme===imports.gi.St.SystemColorScheme.PREFER_LIGHT && !policyPanel()')
+    check('panel-theme-light-remains-disabled', '!policyPanel()')
+    evaluate('soft._settings.set_boolean("panel-enabled-light",true);')
+    wait('!!policyPanel()')
+    evaluate('soft._settings.set_boolean("top-panel",false);')
+    check('panel-theme-master-disables-both', '!policyPanel()')
+    evaluate('soft._settings.set_boolean("top-panel",true); '
+             'policyInterface.set_string("color-scheme","prefer-dark");')
+    wait('imports.gi.St.Settings.get().color_scheme===imports.gi.St.SystemColorScheme.PREFER_DARK && !!policyPanel()')
     evaluate('globalThis.policyColorIs=(r,g,b,a)=>{const c=policyPanel()._panelTint.get_theme_node().get_background_color();return c.red===r && c.green===g && c.blue===b && Math.abs(c.alpha-a)<=1;};')
     evaluate('globalThis.policyStrip=new imports.gi.St.Widget({x:0,y:0,width:1440,height:Main.panel.height,style:"background-color:#b0b0b0;"});testBackdrop.add_child(policyStrip);')
     settle()

@@ -53,6 +53,14 @@
       <default>false</default>
       <summary>Tela de bloqueio</summary>
     </key>
+    <key name="panel-enabled-dark" type="b">
+      <default>true</default>
+      <summary>Blur e transparência da barra superior no tema escuro</summary>
+    </key>
+    <key name="panel-enabled-light" type="b">
+      <default>true</default>
+      <summary>Blur e transparência da barra superior no tema claro</summary>
+    </key>
     <key name="panel-opaque-dark" type="b">
       <default>false</default>
       <summary>Barra opaca com janela maximizada ou em tela cheia no tema escuro</summary>

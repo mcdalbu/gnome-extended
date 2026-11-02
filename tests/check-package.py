@@ -11,7 +11,7 @@ schema = ET.parse(root / 'schemas' / f"{metadata['settings-schema']}.gschema.xml
 assert schema.attrib['id'] == metadata['settings-schema']
 assert schema.attrib['path'] == '/org/gnome/shell/extensions/gnome-shell-soft/'
 keys = {key.attrib['name']: key for key in schema}
-assert set(keys) == {'notifications', 'quick-settings', 'blur-radius', 'opacity', 'brightness', 'system-dialogs', 'notification-banners', 'app-folders', 'top-panel', 'window-switcher', 'osd-windows', 'workspace-switcher', 'screenshot-ui', 'popup-menus', 'overview-background', 'lock-screen', 'panel-opaque-dark', 'panel-opaque-light'}
+assert set(keys) == {'notifications', 'quick-settings', 'blur-radius', 'opacity', 'brightness', 'system-dialogs', 'notification-banners', 'app-folders', 'top-panel', 'window-switcher', 'osd-windows', 'workspace-switcher', 'screenshot-ui', 'popup-menus', 'overview-background', 'lock-screen', 'panel-opaque-dark', 'panel-opaque-light', 'panel-enabled-dark', 'panel-enabled-light'}
 for key in keys.values():
     bounds = key.find('range')
     if bounds is not None:
