@@ -80,6 +80,8 @@ def test():
         variant += '-surfaces'
     if os.environ.get('SOFT_TEST_REMAINING'):
         variant += '-remaining'
+    if os.environ.get('SOFT_TEST_PANEL_OPACITY'):
+        variant += '-panel-policy'
     log = (output / f'{variant}-session.log').open('w')
     shell = subprocess.Popen(['gnome-shell', '--headless', '--wayland', '--no-x11',
                               '--virtual-monitor=1440x1000'], stdout=log, stderr=log)
@@ -147,6 +149,9 @@ def test():
         if os.environ.get('SOFT_TEST_SURFACES'):
             from shell_surfaces import test_surfaces
             test_surfaces(evaluate, check, screenshot, results)
+        if os.environ.get('SOFT_TEST_PANEL_OPACITY'):
+            from panel_policy import test_panel_policy
+            test_panel_policy(evaluate, check, screenshot, results)
         if os.environ.get('SOFT_TEST_REMAINING'):
             from remaining_surfaces import test_remaining
             test_remaining(evaluate, check, screenshot, results)
@@ -155,6 +160,10 @@ def test():
                                       'return {type: s._effect.constructor.name, corners: s._hasCorners, '
                                       'radiusProperty: s._radiusProperty}; })()')
         for key in ['notifications', 'quick-settings']:
+            evaluate(f'globalThis.nativeMenuBox=soft._surfaces.get("{key}").menu.box; '
+                     f'soft._settings.set_boolean("{key}",false); '
+                     'globalThis.nativeMenuRadii=[0,1,2,3].map(c=>nativeMenuBox.get_theme_node().get_border_radius(c)); '
+                     f'soft._settings.set_boolean("{key}",true);')
             evaluate(f'globalThis.surface = soft._surfaces.get("{key}"); '
                      'globalThis.openFrames = []; '
                      'globalThis.openFrameId = global.stage.connect("before-paint", () => { '
@@ -179,6 +188,7 @@ def test():
                 const [bw,bh] = surface._blur.get_transformed_size();
                 return [x-bx,y-by,w-bw,h-bh].every(v => Math.abs(v) < 1);
             })()''')
+            check(f'{key}-native-corners-preserved', '!surface._boxSuffix.includes("border-radius") && [0,1,2,3].every(c=>surface._themeCorners[c]===surface.menu.box.get_theme_node().get_border_radius(c))')
             check(f'{key}-sharp-content', 'surface.menu.box.opacity === 255 && surface.menu.actor.get_effect("gnome-shell-soft-blur") === null')
             check(f'{key}-stacking', '(() => { const children = surface.menu.actor.get_parent().get_children(); '
                   'return children.indexOf(surface._group) === children.indexOf(surface.menu.actor) - 1; })()')
@@ -193,8 +203,8 @@ def test():
                     brightness:surface._effect.brightness};
             })()''')
             check(f'{key}-actual-alpha', 'Math.abs(surface.menu.box.get_theme_node().get_background_color().alpha - 140) <= 1')
-            check(f'{key}-actual-corners', 'surface.menu.box.get_theme_node().get_border_radius(0) === '
-                  '30 * surface._context.scale_factor')
+            check(f'{key}-actual-corners', '[0,1,2,3].every(c=>surface.menu.box.get_theme_node().get_border_radius(c)===nativeMenuRadii[c])')
+            results[f'{key}-native-radii'] = evaluate('nativeMenuRadii')
             screenshot_path = json.dumps(str(output / f'{variant}-{key}.png'))
             evaluate(f'''(async () => {{
                 const stream = Gio.File.new_for_path({screenshot_path}).replace(
@@ -246,7 +256,7 @@ def test():
                        for frame in results[f'{key}-closing-frames']), 'Blur remains after menu close'
 
         evaluate('soft._settings.set_int("opacity", 35); soft._settings.set_int("blur-radius", 47); '
-                 'soft._settings.set_int("corner-radius", 24); soft._settings.set_int("brightness", 75);')
+                 'soft._settings.set_int("brightness", 75);')
         time.sleep(0.3)
         check('live-settings', 'Array.from(soft._surfaces.values()).every(s => '
               's.menu.box.get_style().includes("0.35") && Math.abs(s._effect.brightness - 0.75) < 0.001 && '
@@ -318,8 +328,10 @@ def test():
 
         # Native Shell.BlurEffect lacks rounded clipping, so use square corners
         # there: culling must never remove blur still visible around the fill.
-        evaluate('soft._settings.set_int("opacity",100); '
-                 'if (!surface._hasCorners) soft._settings.set_int("corner-radius",0);')
+        evaluate('globalThis.nativeCornerStyle=surface._originalBoxStyle; '
+                 'soft._settings.set_int("opacity",100); '
+                 'if (!surface._hasCorners) { const style=(nativeCornerStyle??"").trim().replace(/;+$/,""); '
+                 'surface.menu.box.set_style((style?style+"; ":"")+"border-radius:0;"); }')
         time.sleep(0.8)
         evaluate('global.stage.queue_redraw();')
         time.sleep(0.2)
@@ -372,7 +384,7 @@ def test():
         time.sleep(0.4)
         check('transparent-blur-restored', 'surface._group.visible && surface._blur.mapped')
         if not evaluate('surface._hasCorners'):
-            evaluate('soft._settings.set_int("corner-radius",24); soft._settings.set_int("opacity",100);')
+            evaluate('surface.menu.box.set_style(nativeCornerStyle); soft._settings.set_int("opacity",100);')
             time.sleep(0.8)
             evaluate('global.stage.queue_redraw();')
             time.sleep(0.2)

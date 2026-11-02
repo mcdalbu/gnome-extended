@@ -13,7 +13,7 @@
     ],
     "version": 7,
     "settings-schema": "org.gnome.shell.extensions.gnome-shell-soft",
-    "version-name": "7-beta.1",
+    "version-name": "7-beta.3",
     "session-modes": [
         "user",
         "unlock-dialog"

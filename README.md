@@ -6,7 +6,7 @@ Extensão independente para aplicar blur dinâmico e transparência aos menus de
 **alternador de janelas**, **volume/brilho**, **troca de área de trabalho**,
 **menus contextuais**, **captura de tela**, **fundo do overview/pesquisa** e
 **papel de parede da tela de bloqueio**.
-Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **7-beta.1**.
+Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **7-beta.3**.
 
 Repositório: [mcdalbu/gnome-shell-soft](https://github.com/mcdalbu/gnome-shell-soft).
 
@@ -23,7 +23,7 @@ Na pasta desta extensão:
 
 ```bash
 make zip-file
-gnome-extensions install gnome-shell-soft@local_v7-beta.1.zip
+gnome-extensions install gnome-shell-soft@local_v7-beta.3.zip
 ```
 
 Encerre a sessão e entre novamente para o Shell reconhecer uma extensão nova.
@@ -34,7 +34,7 @@ gnome-extensions enable gnome-shell-soft@local
 gnome-extensions prefs gnome-shell-soft@local
 ```
 
-Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v7-beta.1.zip`.
+Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v7-beta.3.zip`.
 Para desativar, use `gnome-extensions disable gnome-shell-soft@local`.
 
 ## Preferências
@@ -57,16 +57,17 @@ As alterações são aplicadas ao vivo e salvas no schema próprio
 | Menus contextuais | Desativado | Ativado/desativado |
 | Overview, grade e pesquisa | Desativado | Ativado/desativado |
 | Tela de bloqueio (personalização do blur nativo) | Desativado | Ativado/desativado |
+| Barra opaca no tema escuro com janela maximizada/tela cheia | Desativado | Ativado/desativado |
+| Barra opaca no tema claro com janela maximizada/tela cheia | Desativado | Ativado/desativado |
 | Intensidade do desfoque | 30 | 1–100 pixels lógicos |
 | Opacidade do fundo | 55% | 0–100% |
 | Brilho do desfoque | 85% | 10–100% |
-| Raio dos cantos | 30 | 0–100 pixels lógicos |
 
 O fundo preserva a cor do tema ativo e recebe a opacidade escolhida. Opacidade
 100% encobre o blur; reduza o valor para vê-lo. A escala do Shell é aplicada ao
-raio do blur e dos cantos. As treze opções de ativação são independentes; os
-ajustes de aparência são compartilhados entre as superfícies. A barra superior
-mantém cantos retos.
+raio do blur. Cada superfície mantém os cantos definidos pelo próprio tema;
+não existe controle global de arredondamento. As treze opções de ativação são
+independentes e os ajustes de aparência são compartilhados entre as superfícies.
 
 ## Backend e cantos arredondados
 
@@ -210,7 +211,7 @@ são liberados quando seus atores são destruídos. A barra superior visível ma
 a proteção contra redesenho parcial nos frames existentes: pode aumentar o custo
 de GPU durante atualizações da tela. Não há benchmark de ganho de desempenho.
 
-Gerar: `make zip-file`. Pacote: `gnome-shell-soft@local_v7-beta.1.zip`.
+Gerar: `make zip-file`. Pacote: `gnome-shell-soft@local_v7-beta.3.zip`.
 O UUID e as configurações existentes são preservados. Para voltar, reinstale a
 beta 5-beta.1 ou a versão 4 e reinicie a sessão.
 
@@ -289,3 +290,57 @@ nem iniciar autenticação. Não substitui uma validação visual após bloqueio
 suspensão ou múltiplos monitores reais. GNOME 45–49 permanece sem validação nesta
 beta. Evidências em `validation/gnome50-surfaces-remaining-*` e
 `validation/gnome50-native-surfaces-remaining-*`.
+
+## Beta 7-beta.2: opacidade automática da barra por tema
+
+Nas preferências, o grupo **Opacidade automática da barra superior** oferece duas
+regras independentes, inicialmente desativadas:
+
+- **Opaca no tema escuro**
+- **Opaca no tema claro**
+
+Cada regra aplica opacidade de 100% quando existe uma janela de aplicativo
+maximizada nas duas direções ou em tela cheia, não minimizada, na área de trabalho
+ativa e no monitor da barra. Janelas em outro monitor ou área de trabalho não
+ativam a regra. Janelas fixadas em todas as áreas são consideradas na área atual.
+Ao restaurar, minimizar ou fechar a última janela correspondente, a barra volta
+à opacidade escolhida no controle geral. Trocar o tema recalcula a regra ao vivo.
+
+Para uma barra opaca somente no modo escuro, ative **Opaca no tema escuro** e deixe
+**Opaca no tema claro** desligada. No tema claro, a barra mantém a transparência e
+blur configurados; no tema escuro, conserva o cinza Adwaita enquanto fica opaca.
+As regras só ficam disponíveis se **Barra superior** estiver ativada.
+
+O fade transparente do overview continua tendo prioridade visual. A regra não
+força a exibição da barra quando o GNOME a oculta em tela cheia. O acompanhamento
+de estado das janelas fica separado do acompanhamento de danos do blur, para que
+restaurar a janela volte a mostrar o efeito mesmo depois de o blur ter sido
+suspenso por um preenchimento opaco. No tema em que a regra está desligada, esses
+sinais de estado são liberados; não há timer de consulta.
+
+Teste com janelas GTK reais em uma sessão privada:
+`SOFT_TEST_SURFACES=1 SOFT_TEST_PANEL_OPACITY=1 /usr/bin/python3 tests/headless.py`.
+Inclui maximizar/restaurar, tela cheia, minimizar, fechar, mudança de tema e de área
+de trabalho, as duas combinações de regras e preservação do fade do overview.
+O filtro de outro monitor é verificado logicamente, sem alterar os monitores
+físicos. As limitações de GNOME 45–49 e de suspensão física continuam valendo.
+
+## Beta 7-beta.3: raios nativos de cada elemento
+
+O controle global **Raio dos cantos** foi removido, inclusive do schema e das
+preferências. Valores antigos desse ajuste deixam de ser usados. A extensão não
+sobrescreve mais `border-radius` dos menus, pastas, diálogos, banners, indicadores,
+alternadores ou painel de captura: cada superfície preserva o raio do tema.
+
+Quando o backend suporta recorte arredondado, o blur usa o raio lido do próprio
+St.ThemeNode da superfície. O recorte respeita o limite de metade da largura/altura
+para fundos em cápsula, a escala do monitor e as transformações das animações.
+Mudanças de tema/estilo atualizam o recorte. Backends com apenas um raio usam o
+maior raio dos quatro cantos como recorte conservador, sem mudar os cantos do
+preenchimento. A limitação documentada para backends sem recorte arredondado
+continua valendo.
+
+Intensidade do blur, brilho e opacidade permanecem configuráveis. Os ajustes de
+opacidade automática da barra, a cor Adwaita e o fade do overview são preservados.
+Os testes comparam os raios do tema com a extensão desligada e ligada em cada
+grupo de superfícies e verificam a correspondência do recorte do blur.

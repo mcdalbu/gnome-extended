@@ -53,6 +53,14 @@
       <default>false</default>
       <summary>Tela de bloqueio</summary>
     </key>
+    <key name="panel-opaque-dark" type="b">
+      <default>false</default>
+      <summary>Barra opaca com janela maximizada ou em tela cheia no tema escuro</summary>
+    </key>
+    <key name="panel-opaque-light" type="b">
+      <default>false</default>
+      <summary>Barra opaca com janela maximizada ou em tela cheia no tema claro</summary>
+    </key>
     <key name="blur-radius" type="i">
       <default>30</default>
       <range min="1" max="100"/>
@@ -68,12 +76,6 @@
       <default>85</default>
       <range min="10" max="100"/>
       <summary>Brilho do desfoque em porcentagem</summary>
-    </key>
-    <key name="corner-radius" type="i">
-      <default>30</default>
-      <range min="0" max="100"/>
-      <summary>Raio dos cantos em pixels lógicos</summary>
-      <description>O recorte do blur requer GNOME Rounded Blur ou suporte nativo a corner-radius.</description>
     </key>
   </schema>
 </schemalist>

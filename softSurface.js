@@ -11,6 +11,7 @@ import * as LoginManager from 'resource:///org/gnome/shell/misc/loginManager.js'
 import {loadBlurBackend, applyBlurParameters, opacityFraction} from './blurBackend.js';
 import {BlurRedrawGuard} from './blurRedrawGuard.js';
 import {Signals} from './signals.js';
+import {PanelOpacity} from './panelOpacity.js';
 
 const BlurBackend = await loadBlurBackend(Shell, GObject);
 
@@ -53,6 +54,10 @@ export class SoftSurface {
                 // animation to leave the blur visible in the overview.
                 this._panelTint = new St.Widget({reactive: false});
                 this._group.add_child(this._panelTint);
+                this._panelPolicy = new PanelOpacity(settings, menu.actor, () => {
+                    this._updatePanelTint();
+                    this._syncVisibility();
+                });
                 this._panelFade = new St.Adjustment({
                     actor: menu.actor, lower: 0, upper: 1,
                     value: Main.overview.visibleTarget ? 0 : 1,
@@ -153,6 +158,7 @@ export class SoftSurface {
                 this._trackWindow(actor);
             this._trackChild(menu.box);
             this.update();
+            this._panelPolicy?.start();
         } catch (error) {
             this.destroy();
             throw error;
@@ -176,12 +182,35 @@ export class SoftSurface {
         const scale = this._context.scale_factor;
         applyBlurParameters(this._effect, this._radiusProperty,
             this._settings.get_int('blur-radius'), scale, this._settings.get_int('brightness'));
-        if (this._hasCorners)
-            this._effect.corner_radius = this._cornerRadius() * scale;
+        this._updateEffectCorners();
+    }
+
+    _readThemeCorners() {
+        const node = this.menu.box.get_theme_node();
+        // Theme node lengths already include the display scale. Keep each
+        // surface's CSS untouched, including capsule-shaped OSD backgrounds.
+        this._themeCorners = [0, 1, 2, 3].map(corner => Math.max(0, node.get_border_radius(corner)));
     }
 
     _cornerRadius() {
-        return this._options.square ? 0 : this._settings.get_int('corner-radius');
+        if (!this._themeCorners)
+            this._readThemeCorners();
+        // The backend exposes one radius. A conservative clip also stays
+        // inside surfaces whose theme defines different corner radii.
+        return Math.max(...this._themeCorners);
+    }
+
+    _updateEffectCorners() {
+        if (!this._hasCorners)
+            return;
+        const {box} = this.menu;
+        const {width, height} = this._blur;
+        const transformScale = box.width > 0 && box.height > 0
+            ? Math.min(width / box.width, height / box.height) : 1;
+        const radius = Math.round(Math.max(0, Math.min(this._cornerRadius() * transformScale,
+            width / 2, height / 2)));
+        if (this._effect.corner_radius !== radius)
+            this._effect.corner_radius = radius;
     }
 
     _fadePanel(target) {
@@ -190,7 +219,21 @@ export class SoftSurface {
         this._panelFade.ease(target, {duration, mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD});
     }
 
+    _updatePanelTint() {
+        if (!this._panelColor)
+            return;
+        this._panelAlpha = this._panelPolicy.opaque ? 1 : opacityFraction(this._settings.get_int('opacity'));
+        const [red, green, blue] = this._panelColor;
+        const style = `background-color: rgba(${red}, ${green}, ${blue}, ${this._panelAlpha});`;
+        if (this._panelTint.get_style() !== style) {
+            this._panelTint.set_style(style);
+            this._opaqueUntil = GLib.get_monotonic_time() +
+                (this._panelTint.get_theme_node().get_transition_duration() + 50) * 1000;
+        }
+    }
+
     update() {
+        this._panelPolicy?.sync();
         // Read the actual theme color before adding our own alpha. Never change
         // the opacity of the content actor: labels and icons must stay sharp.
         const {box, actor} = this.menu;
@@ -200,17 +243,19 @@ export class SoftSurface {
             actor.set_style(this._originalMenuStyle);
         const color = box.get_theme_node().get_background_color();
         const alpha = opacityFraction(this._settings.get_int('opacity'));
-        const radius = this._cornerRadius();
+        this._readThemeCorners();
         if (this._panelTint) {
             const light = St.Settings.get().color_scheme === St.SystemColorScheme.PREFER_LIGHT;
             // Adwaita --headerbar-bg-color (dark): #2e2e32. Preserve the
             // native theme's color in light mode.
-            const [red, green, blue] = light ? [color.red, color.green, color.blue] : [46, 46, 50];
-            this._panelTint.set_style(`background-color: rgba(${red}, ${green}, ${blue}, ${alpha});`);
-            this._boxSuffix = 'background-color: transparent; border-radius: 0; background-image: none;';
+            if (light && color.alpha > 0)
+                this._panelLightColor = [color.red, color.green, color.blue];
+            this._panelColor = light ? (this._panelLightColor ?? [250, 250, 251]) : [46, 46, 50];
+            this._updatePanelTint();
+            this._boxSuffix = 'background-color: transparent; background-image: none;';
         } else {
             this._boxSuffix = 'background-color: ' +
-                `rgba(${color.red}, ${color.green}, ${color.blue}, ${alpha}); border-radius: ${radius}px; background-image: none;`;
+                `rgba(${color.red}, ${color.green}, ${color.blue}, ${alpha}); background-image: none;`;
         }
         this._appliedBoxStyle = appendStyle(this._originalBoxStyle, this._boxSuffix);
         box.set_style(this._appliedBoxStyle);
@@ -243,7 +288,8 @@ export class SoftSurface {
     _syncVisibility() {
         const active = this.menu.isOpen && this.menu.actor.mapped && !this._sleeping &&
             !Main.sessionMode.isLocked && !Main.screenShield?.active;
-        const opaque = active && this._settings.get_int('opacity') === 100 &&
+        const alpha = this._panelTint ? this._panelAlpha : opacityFraction(this._settings.get_int('opacity'));
+        const opaque = active && alpha === 1 &&
             this.menu.box.get_paint_opacity() === 255 &&
             (this._hasCorners || this._cornerRadius() === 0) &&
             GLib.get_monotonic_time() >= this._opaqueUntil;
@@ -302,12 +348,15 @@ export class SoftSurface {
         if (!okStart || !okEnd || !values.every(Number.isFinite) || values[2] <= 0 || values[3] <= 0)
             return;
         const previous = [this._blur.x, this._blur.y, this._blur.width, this._blur.height];
-        if (values.every((value, i) => Math.abs(value - previous[i]) < 0.01))
+        if (values.every((value, i) => Math.abs(value - previous[i]) < 0.01)) {
+            this._updateEffectCorners();
             return;
+        }
         this._blur.set_position(values[0], values[1]);
         this._blur.set_size(values[2], values[3]);
         this._panelTint?.set_position(values[0], values[1]);
         this._panelTint?.set_size(values[2], values[3]);
+        this._updateEffectCorners();
         this._refreshWindowIntersections();
         // Geometry may change in before-paint, after BEFORE_REDRAW callbacks.
         // Invalidate the capture for this frame, including the first open frame.
@@ -424,6 +473,10 @@ export class SoftSurface {
                 const duration = actor.get_theme_node().get_transition_duration() + 50;
                 this._styleUntil = Math.max(this._styleUntil, GLib.get_monotonic_time() + duration * 1000);
                 if (actor === this.menu.box) {
+                    if (!this._settingStyle) {
+                        this._readThemeCorners();
+                        this._updateEffectCorners();
+                    }
                     this._opaqueUntil = this._styleUntil;
                     this._syncVisibility();
                 }
@@ -445,6 +498,8 @@ export class SoftSurface {
         if (this._destroyed)
             return;
         this._destroyed = true;
+        this._panelPolicy?.destroy();
+        this._panelPolicy = null;
         this._panelFade?.remove_transition('value');
         this._panelFade = null;
         this._signals.clear();

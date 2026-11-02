@@ -35,17 +35,30 @@ export default class GnomeShellSoftPreferences extends ExtensionPreferences {
             settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
             surfaces.add(row);
         }
+        const panel = new Adw.PreferencesGroup({
+            title: 'Opacidade automática da barra superior',
+            description: 'Com uma janela maximizada ou em tela cheia no monitor da barra e na área de trabalho atual.',
+        });
+        page.add(panel);
+        for (const [key, title] of [
+            ['panel-opaque-dark', 'Opaca no tema escuro'],
+            ['panel-opaque-light', 'Opaca no tema claro'],
+        ]) {
+            const row = new Adw.SwitchRow({title,
+                subtitle: 'Ao restaurar ou minimizar a janela, volta à transparência configurada.'});
+            settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+            settings.bind('top-panel', row, 'sensitive', Gio.SettingsBindFlags.GET);
+            panel.add(row);
+        }
         const appearance = new Adw.PreferencesGroup({
             title: 'Fundo das superfícies',
-            description: 'Intensidade e brilho compartilhados. Opacidade e cantos ajustam as superfícies; a barra mantém cantos retos.',
+            description: 'Intensidade e brilho compartilhados. Cada elemento mantém os cantos definidos pelo tema.',
         });
         page.add(appearance);
         for (const [key, title, subtitle, lower, upper] of [
             ['blur-radius', 'Intensidade do desfoque', 'De 1 a 100 pixels lógicos.', 1, 100],
             ['opacity', 'Opacidade do fundo (%)', '0% transparente; 100% opaco.', 0, 100],
             ['brightness', 'Brilho do desfoque (%)', 'Luminosidade da imagem atrás do fundo.', 10, 100],
-            ['corner-radius', 'Raio dos cantos',
-                'Em pixels lógicos. O recorte do blur requer GNOME Rounded Blur ou suporte nativo.', 0, 100],
         ]) {
             const row = new Adw.SpinRow({
                 title, subtitle,
@@ -61,8 +74,8 @@ export default class GnomeShellSoftPreferences extends ExtensionPreferences {
             for (const key of ['notifications', 'quick-settings', 'system-dialogs',
                 'notification-banners', 'app-folders', 'top-panel', 'window-switcher',
                 'osd-windows', 'workspace-switcher', 'screenshot-ui', 'popup-menus',
-                'overview-background', 'lock-screen', 'blur-radius',
-                'opacity', 'brightness', 'corner-radius'])
+                'overview-background', 'lock-screen', 'panel-opaque-dark', 'panel-opaque-light', 'blur-radius',
+                'opacity', 'brightness'])
                 settings.reset(key);
         });
         reset.add_suffix(button);

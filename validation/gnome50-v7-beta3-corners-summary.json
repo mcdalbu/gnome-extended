@@ -1,0 +1,188 @@
+{
+  "version": "7-beta.3",
+  "date": "2026-11-02",
+  "change": "Preserve native theme radii per surface; remove global corner-radius setting",
+  "tests": {
+    "gnome50-surfaces-remaining-panel-policy": {
+      "passed": true,
+      "native_radii": {
+        "system-dialogs-native-radii": [
+          18,
+          18,
+          18,
+          18
+        ],
+        "notification-banners-native-radii": [
+          16,
+          16,
+          16,
+          16
+        ],
+        "app-folders-native-radii": [
+          64,
+          64,
+          64,
+          64
+        ],
+        "window-switcher-native-radii": [
+          28,
+          28,
+          28,
+          28
+        ],
+        "osd-windows-native-radii": [
+          999,
+          999,
+          999,
+          999
+        ],
+        "workspace-switcher-native-radii": [
+          999,
+          999,
+          999,
+          999
+        ],
+        "popup-menus-native-radii": [
+          20,
+          20,
+          20,
+          20
+        ],
+        "screenshot-ui-native-radii": [
+          32,
+          32,
+          32,
+          32
+        ],
+        "notifications-native-radii": [
+          30,
+          30,
+          30,
+          30
+        ],
+        "quick-settings-native-radii": [
+          36,
+          36,
+          36,
+          36
+        ]
+      },
+      "corner_checks": {
+        "system-dialogs-native-corners-preserved": true,
+        "system-dialogs-blur-corners-follow-theme": true,
+        "notification-banners-native-corners-preserved": true,
+        "notification-banners-blur-corners-follow-theme": true,
+        "app-folders-native-corners-preserved": true,
+        "app-folders-blur-corners-follow-theme": true,
+        "window-switcher-native-corners-preserved": true,
+        "window-switcher-blur-corners-follow-theme": true,
+        "osd-windows-native-corners-preserved": true,
+        "osd-windows-blur-corners-follow-theme": true,
+        "workspace-switcher-native-corners-preserved": true,
+        "workspace-switcher-blur-corners-follow-theme": true,
+        "popup-menus-native-corners-preserved": true,
+        "popup-menus-blur-corners-follow-theme": true,
+        "screenshot-ui-native-corners-preserved": true,
+        "screenshot-ui-blur-corners-follow-theme": true,
+        "notifications-native-corners-preserved": true,
+        "quick-settings-native-corners-preserved": true
+      },
+      "preferences": {
+        "passed": true,
+        "output": "Preferences: controls, defaults, bidirectional bindings and reset passed"
+      },
+      "idle_frames": 0
+    },
+    "gnome50-native-surfaces-remaining-panel-policy": {
+      "passed": true,
+      "native_radii": {
+        "system-dialogs-native-radii": [
+          18,
+          18,
+          18,
+          18
+        ],
+        "notification-banners-native-radii": [
+          16,
+          16,
+          16,
+          16
+        ],
+        "app-folders-native-radii": [
+          64,
+          64,
+          64,
+          64
+        ],
+        "window-switcher-native-radii": [
+          28,
+          28,
+          28,
+          28
+        ],
+        "osd-windows-native-radii": [
+          999,
+          999,
+          999,
+          999
+        ],
+        "workspace-switcher-native-radii": [
+          999,
+          999,
+          999,
+          999
+        ],
+        "popup-menus-native-radii": [
+          20,
+          20,
+          20,
+          20
+        ],
+        "screenshot-ui-native-radii": [
+          32,
+          32,
+          32,
+          32
+        ],
+        "notifications-native-radii": [
+          30,
+          30,
+          30,
+          30
+        ],
+        "quick-settings-native-radii": [
+          36,
+          36,
+          36,
+          36
+        ]
+      },
+      "corner_checks": {
+        "system-dialogs-native-corners-preserved": true,
+        "system-dialogs-blur-corners-follow-theme": true,
+        "notification-banners-native-corners-preserved": true,
+        "notification-banners-blur-corners-follow-theme": true,
+        "app-folders-native-corners-preserved": true,
+        "app-folders-blur-corners-follow-theme": true,
+        "window-switcher-native-corners-preserved": true,
+        "window-switcher-blur-corners-follow-theme": true,
+        "osd-windows-native-corners-preserved": true,
+        "osd-windows-blur-corners-follow-theme": true,
+        "workspace-switcher-native-corners-preserved": true,
+        "workspace-switcher-blur-corners-follow-theme": true,
+        "popup-menus-native-corners-preserved": true,
+        "popup-menus-blur-corners-follow-theme": true,
+        "screenshot-ui-native-corners-preserved": true,
+        "screenshot-ui-blur-corners-follow-theme": true,
+        "notifications-native-corners-preserved": true,
+        "quick-settings-native-corners-preserved": true
+      },
+      "preferences": {
+        "passed": true,
+        "output": "Preferences: controls, defaults, bidirectional bindings and reset passed"
+      },
+      "idle_frames": 0
+    }
+  },
+  "sha256": "0166583d741a19ea0718eee3ed6cfb595439d0319127f80fe68b98fcbef51e26"
+}

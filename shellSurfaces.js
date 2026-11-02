@@ -193,7 +193,7 @@ export class ShellSurfaces {
             new SurfaceMenu(record.actor, box, () => this._isOpen(record, box));
         record.surface = new SoftSurface(record.menu, this._settings, record.key, () => {
             record.surface = null;
-        }, {plain: record.key !== 'popup-menus', square: record.key === 'top-panel',
+        }, {plain: record.key !== 'popup-menus',
             panel: record.key === 'top-panel', anchor});
     }
 

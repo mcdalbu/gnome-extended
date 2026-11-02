@@ -24,8 +24,12 @@ def test_surfaces(evaluate, check, screenshot, results):
                  f'soft._settings.set_boolean("{key}",false);')
         check(f'{key}-toggle-restores-style',
               f'!findSoft("{key}") && toggleBox.get_style()===toggleStyle')
+        evaluate('globalThis.nativeRadii=[0,1,2,3].map(c=>toggleBox.get_theme_node().get_border_radius(c));')
         evaluate(f'soft._settings.set_boolean("{key}",true);')
         wait(f'alignedSoft(findSoft("{key}"))')
+        check(f'{key}-native-corners-preserved', '(() => {const s=findSoft("__KEY__");return !s._boxSuffix.includes("border-radius") && [0,1,2,3].every(c=>s.menu.box.get_theme_node().get_border_radius(c)===nativeRadii[c]);})()'.replace('__KEY__', key))
+        results[f'{key}-native-radii'] = evaluate('nativeRadii')
+        check(f'{key}-blur-corners-follow-theme', '(() => {const s=findSoft("__KEY__");if(!s._hasCorners)return true; const b=s.menu.box; const a=s._blur; const scale=Math.min(a.width/b.width,a.height/b.height);return s._effect.corner_radius===Math.round(Math.min(Math.max(...nativeRadii)*scale,a.width/2,a.height/2));})()'.replace('__KEY__', key))
 
     evaluate('globalThis.findSoft = key => [...soft._shellSurfaces._records.values()]'
              '.find(r=>r.key===key && r.surface)?.surface; '
