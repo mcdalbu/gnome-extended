@@ -6,7 +6,7 @@ Extensão independente para aplicar blur dinâmico e transparência aos menus de
 **alternador de janelas**, **volume/brilho**, **troca de área de trabalho**,
 **menus contextuais**, **captura de tela**, **fundo do overview/pesquisa** e
 **papel de parede da tela de bloqueio**.
-Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **7-beta.3**.
+Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **7-beta.5**.
 
 Repositório: [mcdalbu/gnome-shell-soft](https://github.com/mcdalbu/gnome-shell-soft).
 
@@ -23,7 +23,7 @@ Na pasta desta extensão:
 
 ```bash
 make zip-file
-gnome-extensions install gnome-shell-soft@local_v7-beta.3.zip
+gnome-extensions install gnome-shell-soft@local_v7-beta.5.zip
 ```
 
 Encerre a sessão e entre novamente para o Shell reconhecer uma extensão nova.
@@ -34,7 +34,7 @@ gnome-extensions enable gnome-shell-soft@local
 gnome-extensions prefs gnome-shell-soft@local
 ```
 
-Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v7-beta.3.zip`.
+Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v7-beta.5.zip`.
 Para desativar, use `gnome-extensions disable gnome-shell-soft@local`.
 
 ## Preferências
@@ -211,7 +211,7 @@ são liberados quando seus atores são destruídos. A barra superior visível ma
 a proteção contra redesenho parcial nos frames existentes: pode aumentar o custo
 de GPU durante atualizações da tela. Não há benchmark de ganho de desempenho.
 
-Gerar: `make zip-file`. Pacote: `gnome-shell-soft@local_v7-beta.3.zip`.
+Gerar: `make zip-file`. Pacote: `gnome-shell-soft@local_v7-beta.5.zip`.
 O UUID e as configurações existentes são preservados. Para voltar, reinstale a
 beta 5-beta.1 ou a versão 4 e reinicie a sessão.
 
@@ -344,3 +344,28 @@ Intensidade do blur, brilho e opacidade permanecem configuráveis. Os ajustes de
 opacidade automática da barra, a cor Adwaita e o fade do overview são preservados.
 Os testes comparam os raios do tema com a extensão desligada e ligada em cada
 grupo de superfícies e verificam a correspondência do recorte do blur.
+
+## Beta 7-beta.4: cor da barra opaca no modo escuro
+
+No modo escuro, a barra superior usa preto (#000000) quando o preenchimento fica
+100% opaco, tanto pela regra de janela maximizada/tela cheia quanto pelo controle
+manual de opacidade. Ao recuperar transparência, volta ao cinza Adwaita #2e2e32.
+No modo claro, mantém a cor do tema. O fade do overview, as regras de opacidade e
+os cantos nativos das superfícies permanecem iguais.
+
+O teste de opacidade verifica as cores ao maximizar, restaurar, minimizar, fechar,
+usar tela cheia e alterar a opacidade manualmente, além de preservar a cor clara.
+
+## Beta 7-beta.5: fade da cor e transparência da barra
+
+O preenchimento da barra usa a transição CSS nativa do St para interpolar cor e
+alfa juntos. A passagem de cinza translúcido para preto opaco e o retorno são
+gradativos, com a duração do tema da barra (250 ms no Adwaita). Mudanças rápidas
+retomam/revertem a transição em andamento, sem saltar diretamente ao destino.
+O blur permanece visível durante a transição e só é suspenso após o preenchimento
+ficar completamente opaco. O fade de entrada/saída do overview continua se
+aplicando ao preenchimento e ao blur em conjunto.
+
+A validação de opacidade captura pixels do painel sobre um fundo de teste uniforme
+antes, durante e depois dos fades nos dois sentidos, além de testar uma reversão
+interrompida e os estados de janela usados pela regra automática.

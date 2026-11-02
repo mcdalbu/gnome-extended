@@ -1,0 +1,30 @@
+{
+  "version": "7-beta.5",
+  "date": "2026-11-02",
+  "passed": true,
+  "visual_pixel_fades": {
+    "panel-tint-fade-to-black": {
+      "start": 93.66666666666667,
+      "middle": 89.66666666666667,
+      "end": 0.0
+    },
+    "panel-tint-fade-to-gray": {
+      "start": 0.0,
+      "middle": 7.0,
+      "end": 93.66666666666667
+    },
+    "panel-tint-interrupted-fade-restores-gray": true
+  },
+  "panel_color_checks": {
+    "panel-color-dark-transparent-gray": true,
+    "panel-color-dark-manual-opaque-black": true,
+    "panel-color-dark-manual-transparency-restores-gray": true,
+    "panel-color-dark-maximized-black": true,
+    "panel-color-light-opaque-keeps-theme": true,
+    "panel-color-unmaximize-restores-gray": true,
+    "panel-color-fullscreen-black": true,
+    "panel-color-minimize-restores-gray": true,
+    "panel-color-window-close-restores-gray": true
+  },
+  "sha256": "3b4c442d332df59a2c8f9672d03ef9f1262d929c4a99368e295d44fa9d205cc4"
+}

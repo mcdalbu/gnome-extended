@@ -223,8 +223,12 @@ export class SoftSurface {
         if (!this._panelColor)
             return;
         this._panelAlpha = this._panelPolicy.opaque ? 1 : opacityFraction(this._settings.get_int('opacity'));
-        const [red, green, blue] = this._panelColor;
-        const style = `background-color: rgba(${red}, ${green}, ${blue}, ${this._panelAlpha});`;
+        const light = St.Settings.get().color_scheme === St.SystemColorScheme.PREFER_LIGHT;
+        const [red, green, blue] = !light && this._panelAlpha === 1 ? [0, 0, 0] : this._panelColor;
+        // St interpolates the complete RGBA background in one native CSS
+        // transition. Keep blur until the opaque fill has finished fading in.
+        const duration = this.menu.box.get_theme_node().get_transition_duration();
+        const style = `background-color: rgba(${red}, ${green}, ${blue}, ${this._panelAlpha}); transition-duration: ${duration}ms;`;
         if (this._panelTint.get_style() !== style) {
             this._panelTint.set_style(style);
             this._opaqueUntil = GLib.get_monotonic_time() +
