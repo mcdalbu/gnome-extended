@@ -6,7 +6,7 @@ Extensão independente para aplicar blur dinâmico e transparência aos menus de
 **alternador de janelas**, **volume/brilho**, **troca de área de trabalho**,
 **menus contextuais**, **captura de tela**, **fundo do overview/pesquisa** e
 **papel de parede da tela de bloqueio**.
-Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **7-beta.5**.
+Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **7**.
 
 Repositório: [mcdalbu/gnome-shell-soft](https://github.com/mcdalbu/gnome-shell-soft).
 
@@ -23,7 +23,7 @@ Na pasta desta extensão:
 
 ```bash
 make zip-file
-gnome-extensions install gnome-shell-soft@local_v7-beta.5.zip
+gnome-extensions install gnome-shell-soft@local_v7.zip
 ```
 
 Encerre a sessão e entre novamente para o Shell reconhecer uma extensão nova.
@@ -34,7 +34,7 @@ gnome-extensions enable gnome-shell-soft@local
 gnome-extensions prefs gnome-shell-soft@local
 ```
 
-Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v7-beta.5.zip`.
+Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v7.zip`.
 Para desativar, use `gnome-extensions disable gnome-shell-soft@local`.
 
 ## Preferências
@@ -211,7 +211,7 @@ são liberados quando seus atores são destruídos. A barra superior visível ma
 a proteção contra redesenho parcial nos frames existentes: pode aumentar o custo
 de GPU durante atualizações da tela. Não há benchmark de ganho de desempenho.
 
-Gerar: `make zip-file`. Pacote: `gnome-shell-soft@local_v7-beta.5.zip`.
+Gerar: `make zip-file`. Pacote: `gnome-shell-soft@local_v7.zip`.
 O UUID e as configurações existentes são preservados. Para voltar, reinstale a
 beta 5-beta.1 ou a versão 4 e reinicie a sessão.
 
@@ -369,3 +369,12 @@ aplicando ao preenchimento e ao blur em conjunto.
 A validação de opacidade captura pixels do painel sobre um fundo de teste uniforme
 antes, durante e depois dos fades nos dois sentidos, além de testar uma reversão
 interrompida e os estados de janela usados pela regra automática.
+
+## Versão estável 7
+
+Publica os recursos e correções validados até a beta 7-beta.5: controles
+independentes de blur nas superfícies do Shell, cantos nativos, opacidade da
+barra por tema e transição conjunta de cor e transparência.
+
+Instalação: `gnome-extensions install --force gnome-shell-soft@local_v7.zip`.
+Encerre a sessão e entre novamente após atualizar.
