@@ -11,12 +11,12 @@ schema = ET.parse(root / 'schemas' / f"{metadata['settings-schema']}.gschema.xml
 assert schema.attrib['id'] == metadata['settings-schema']
 assert schema.attrib['path'] == '/org/gnome/shell/extensions/gnome-shell-soft/'
 keys = {key.attrib['name']: key for key in schema}
-assert set(keys) == {'notifications', 'quick-settings', 'blur-radius', 'opacity', 'brightness', 'corner-radius'}
+assert set(keys) == {'notifications', 'quick-settings', 'blur-radius', 'opacity', 'brightness', 'corner-radius', 'system-dialogs', 'notification-banners', 'app-folders', 'top-panel', 'window-switcher', 'osd-windows', 'workspace-switcher', 'screenshot-ui', 'popup-menus', 'overview-background', 'lock-screen'}
 for key in keys.values():
     bounds = key.find('range')
     if bounds is not None:
         assert int(bounds.attrib['min']) <= int(key.findtext('default')) <= int(bounds.attrib['max'])
-for filename in ['extension.js', 'prefs.js', 'softSurface.js', 'signals.js', 'blurBackend.js',
+for filename in ['extension.js', 'prefs.js', 'softSurface.js', 'shellSurfaces.js', 'shellBackgrounds.js', 'signals.js', 'blurBackend.js',
                  'blurRedrawGuard.js', 'COPYING', 'README.md']:
     assert (root / filename).is_file(), filename
 print('Package identity, schema ranges and required files: OK')

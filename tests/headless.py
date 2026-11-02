@@ -71,10 +71,15 @@ def test():
     shell_settings.set_boolean('disable-user-extensions', False)
     shell_settings.set_string('welcome-dialog-last-shown-version', '999')
     Gio.Settings.new('org.gnome.desktop.notifications').set_boolean('show-banners', False)
+    Gio.Settings.new('org.gnome.desktop.search-providers').set_boolean('disable-external', True)
     Gio.Settings.sync()
     output = ROOT / 'validation'
     output.mkdir(exist_ok=True)
     variant = 'gnome50-native' if os.environ.get('SOFT_TEST_NATIVE') else 'gnome50'
+    if os.environ.get('SOFT_TEST_SURFACES'):
+        variant += '-surfaces'
+    if os.environ.get('SOFT_TEST_REMAINING'):
+        variant += '-remaining'
     log = (output / f'{variant}-session.log').open('w')
     shell = subprocess.Popen(['gnome-shell', '--headless', '--wayland', '--no-x11',
                               '--virtual-monitor=1440x1000'], stdout=log, stderr=log)
@@ -139,6 +144,12 @@ def test():
                     style:'font-size: 38px; font-weight: bold; color: white;'}));
             Main.uiGroup.insert_child_above(testBackdrop, global.window_group);
         })()''')
+        if os.environ.get('SOFT_TEST_SURFACES'):
+            from shell_surfaces import test_surfaces
+            test_surfaces(evaluate, check, screenshot, results)
+        if os.environ.get('SOFT_TEST_REMAINING'):
+            from remaining_surfaces import test_remaining
+            test_remaining(evaluate, check, screenshot, results)
         check('two-surfaces', 'soft._surfaces.size === 2')
         results['backend'] = evaluate('(() => { const s = soft._surfaces.get("quick-settings"); '
                                       'return {type: s._effect.constructor.name, corners: s._hasCorners, '
@@ -282,6 +293,17 @@ def test():
         })()''')
         time.sleep(0.3)
         check('distant-window-no-repaint', 'probeWindow.translation_x = 20; surface._later === 0')
+        check('damage-burst-shares-bounds', """(() => {
+            surface._blurBounds = null;
+            const first = surface._getBlurBounds();
+            for (let i=0; i<20; i++) surface._windowIntersectsBlur(probeWindow);
+            return surface._getBlurBounds() === first;
+        })()""")
+        check('geometry-invalidates-bounds', """(() => {
+            const previous = surface._getBlurBounds();
+            surface._syncGeometry();
+            return surface._getBlurBounds() !== previous;
+        })()""")
         check('window-entering-repaints', '''(() => {
             const [x,y] = surface._blur.get_transformed_position();
             probeWindow.translation_x = x - probeWindow.x;

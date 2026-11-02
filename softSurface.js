@@ -21,8 +21,9 @@ function appendStyle(original, suffix) {
 }
 
 export class SoftSurface {
-    constructor(menu, settings, name, onDestroyed) {
+    constructor(menu, settings, name, onDestroyed, options = {}) {
         this.menu = menu;
+        this._options = options;
         this._settings = settings;
         this._signals = new Signals();
         this._children = new Map();
@@ -33,7 +34,7 @@ export class SoftSurface {
         this._opaqueUntil = 0;
         this._needsEffect = false;
         this._originalBoxStyle = menu.box.get_style();
-        this._originalMenuStyle = menu.actor.get_style();
+        this._originalMenuStyle = menu.actor.get_style?.() ?? null;
         this._context = St.ThemeContext.get_for_stage(global.stage);
         this._login = LoginManager.getLoginManager();
         this._sleeping = this._login.preparingForSleep ?? false;
@@ -41,21 +42,43 @@ export class SoftSurface {
         try {
             // Keep framebuffer sampling outside BoxPointer's offscreen effects
             // (Quick Settings uses one when dimming behind an expanded submenu).
-            this._group = new Meta.BackgroundGroup({name: `soft-${name}-group`});
+            this._group = new Meta.BackgroundGroup({name: `soft-${name}-group`, width: 0, height: 0});
             this._blur = new St.Widget({
                 name: `soft-${name}-background`, reactive: false,
                 style: 'background-color: transparent;',
             });
             this._group.add_child(this._blur);
-            menu.actor.get_parent().insert_child_below(this._group, menu.actor);
+            if (options.panel) {
+                // Tint and blur share one opacity, so there is no second CSS
+                // animation to leave the blur visible in the overview.
+                this._panelTint = new St.Widget({reactive: false});
+                this._group.add_child(this._panelTint);
+                this._panelFade = new St.Adjustment({
+                    actor: menu.actor, lower: 0, upper: 1,
+                    value: Main.overview.visibleTarget ? 0 : 1,
+                });
+                this._signals.connect(this._panelFade, 'notify::value', () => this._syncVisibility());
+                this._signals.connect(Main.overview, 'showing', () => this._fadePanel(0));
+                this._signals.connect(Main.overview, 'hiding', () => this._fadePanel(1));
+                this._signals.connect(St.Settings.get(), 'notify::color-scheme', () => this.update());
+            }
+            this._signals.connect(this._group, 'destroy', () => {
+                // A Shell container may destroy siblings before their surface.
+                this._group = null;
+                this.destroy(true);
+                onDestroyed();
+            });
+            const anchor = options.anchor ?? menu.actor;
+            anchor.get_parent().insert_child_below(this._group, anchor);
             this._replaceEffect();
 
             // PopupMenu raises itself on open. Raise the separate backdrop with
             // it so other Shell layers cannot end up between blur and surface.
             this._signals.connect(menu, 'open-state-changed', (_menu, open) => {
                 if (open) {
-                    const parent = menu.actor.get_parent();
-                    parent.set_child_below_sibling(this._group, menu.actor);
+                    const anchor = options.anchor ?? menu.actor;
+                    const parent = anchor.get_parent();
+                    parent.set_child_below_sibling(this._group, anchor);
                     this.update();
                 } else {
                     // The menu actor stays mapped through its exit animation.
@@ -67,8 +90,10 @@ export class SoftSurface {
             });
             // PanelMenu rewrites the menu's max-height when opening or moving
             // monitors. Preserve those updates and reapply only our suffix.
-            for (const [actor, field] of [[menu.box, '_originalBoxStyle'],
-                [menu.actor, '_originalMenuStyle']]) {
+            const styledActors = [[menu.box, '_originalBoxStyle']];
+            if (!options.plain)
+                styledActors.push([menu.actor, '_originalMenuStyle']);
+            for (const [actor, field] of styledActors) {
                 this._signals.connect(actor, 'notify::style', () => {
                     const isBox = actor === menu.box;
                     const applied = isBox ? this._appliedBoxStyle : this._appliedMenuStyle;
@@ -103,14 +128,18 @@ export class SoftSurface {
                 this._signals.connect(Main.screenShield, 'active-changed', () => this._recover());
 
             this._signals.connect(global.stage, 'before-update', (_stage, view) => {
+                this._blurBounds = null;
                 this._syncVisibility();
-                this._syncGeometry();
+                this._syncGeometry(false);
                 this._guard.begin(this._blur, view);
                 if (this._blur.mapped && GLib.get_monotonic_time() < this._styleUntil)
                     this._effect.queue_repaint();
             });
             this._signals.connect(global.stage, 'before-paint', () => this._syncGeometry());
-            this._signals.connect(global.stage, 'after-update', () => this._guard.end());
+            this._signals.connect(global.stage, 'after-update', () => {
+                this._blurBounds = null;
+                this._guard.end();
+            });
             this._signals.connect(global.display, 'restacked', () => this._queueRepaint());
 
             const added = GObject.signal_lookup('child-added', global.window_group)
@@ -148,7 +177,17 @@ export class SoftSurface {
         applyBlurParameters(this._effect, this._radiusProperty,
             this._settings.get_int('blur-radius'), scale, this._settings.get_int('brightness'));
         if (this._hasCorners)
-            this._effect.corner_radius = this._settings.get_int('corner-radius') * scale;
+            this._effect.corner_radius = this._cornerRadius() * scale;
+    }
+
+    _cornerRadius() {
+        return this._options.square ? 0 : this._settings.get_int('corner-radius');
+    }
+
+    _fadePanel(target) {
+        const duration = this.menu.box.get_theme_node().get_transition_duration();
+        // Match StThemeNodeTransition's native CSS easing and theme duration.
+        this._panelFade.ease(target, {duration, mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD});
     }
 
     update() {
@@ -157,19 +196,31 @@ export class SoftSurface {
         const {box, actor} = this.menu;
         this._settingStyle = true;
         box.set_style(this._originalBoxStyle);
-        actor.set_style(this._originalMenuStyle);
+        if (!this._options.plain)
+            actor.set_style(this._originalMenuStyle);
         const color = box.get_theme_node().get_background_color();
         const alpha = opacityFraction(this._settings.get_int('opacity'));
-        const radius = this._settings.get_int('corner-radius');
-        this._boxSuffix = 'background-color: ' +
-            `rgba(${color.red}, ${color.green}, ${color.blue}, ${alpha}); border-radius: ${radius}px; background-image: none;`;
+        const radius = this._cornerRadius();
+        if (this._panelTint) {
+            const light = St.Settings.get().color_scheme === St.SystemColorScheme.PREFER_LIGHT;
+            // Adwaita --headerbar-bg-color (dark): #2e2e32. Preserve the
+            // native theme's color in light mode.
+            const [red, green, blue] = light ? [color.red, color.green, color.blue] : [46, 46, 50];
+            this._panelTint.set_style(`background-color: rgba(${red}, ${green}, ${blue}, ${alpha});`);
+            this._boxSuffix = 'background-color: transparent; border-radius: 0; background-image: none;';
+        } else {
+            this._boxSuffix = 'background-color: ' +
+                `rgba(${color.red}, ${color.green}, ${color.blue}, ${alpha}); border-radius: ${radius}px; background-image: none;`;
+        }
         this._appliedBoxStyle = appendStyle(this._originalBoxStyle, this._boxSuffix);
         box.set_style(this._appliedBoxStyle);
         // Older themes draw a second opaque surface in BoxPointer's Cairo
         // border. Suppress just its fill; keep layout, border and input intact.
-        this._menuSuffix = '-arrow-background-color: transparent;';
-        this._appliedMenuStyle = appendStyle(this._originalMenuStyle, this._menuSuffix);
-        actor.set_style(this._appliedMenuStyle);
+        if (!this._options.plain) {
+            this._menuSuffix = '-arrow-background-color: transparent;';
+            this._appliedMenuStyle = appendStyle(this._originalMenuStyle, this._menuSuffix);
+            actor.set_style(this._appliedMenuStyle);
+        }
         this._settingStyle = false;
         this._updateEffect();
         // St's theme node reports the target alpha, not the intermediate
@@ -194,41 +245,50 @@ export class SoftSurface {
             !Main.sessionMode.isLocked && !Main.screenShield?.active;
         const opaque = active && this._settings.get_int('opacity') === 100 &&
             this.menu.box.get_paint_opacity() === 255 &&
-            (this._hasCorners || this._settings.get_int('corner-radius') === 0) &&
+            (this._hasCorners || this._cornerRadius() === 0) &&
             GLib.get_monotonic_time() >= this._opaqueUntil;
-        const visible = active && !opaque;
-        const wasVisible = this._group.visible;
-        this._group.visible = visible;
-        if (!visible) {
-            if (wasVisible) {
-                for (const {signals} of this._windows.values())
-                    signals.clear();
-                this._windows.clear();
-            }
+        const fade = this._panelFade?.value ?? 1;
+        const visible = active && fade > 0 && (!!this._panelTint || !opaque);
+        const blurVisible = visible && !opaque;
+        const wasVisible = this._group.visible && this._blur.visible;
+        this._group.visible = !!visible;
+        this._blur.visible = !!blurVisible;
+        if (!blurVisible) {
+            for (const {signals} of this._windows.values())
+                signals.clear();
+            this._windows.clear();
             if (this._later)
                 global.compositor.get_laters().remove(this._later);
             this._later = 0;
             this._guard.end();
+        } else {
+            if (!wasVisible) {
+                this._blurBounds = null;
+                this._needsEffect = true;
+                for (const actor of global.get_window_actors())
+                    this._trackWindow(actor);
+                this._refreshWindowIntersections();
+            }
+            if (this._needsEffect)
+                this._replaceEffect();
+        }
+        if (!visible) {
+            this._group.opacity = 0;
             return;
         }
-        if (!wasVisible) {
-            this._needsEffect = true;
-            for (const actor of global.get_window_actors())
-                this._trackWindow(actor);
-            this._refreshWindowIntersections();
-        }
-        if (this._needsEffect)
-            this._replaceEffect();
         // The group is a sibling, so account for its common parent's opacity.
         const parentOpacity = this._group.get_parent().get_paint_opacity();
+        const opacityActor = this._options.plain ? this.menu.box : this.menu.actor;
         this._group.opacity = parentOpacity > 0
-            ? Math.round(255 * this.menu.actor.get_paint_opacity() / parentOpacity) : 0;
+            ? Math.min(255, Math.round(255 * fade * opacityActor.get_paint_opacity() / parentOpacity)) : 0;
     }
 
-    _syncGeometry() {
+    _syncGeometry(syncVisibility = true) {
+        this._blurBounds = null;
         if (!this._group.visible || !this.menu.box.mapped)
             return;
-        this._syncVisibility();
+        if (syncVisibility)
+            this._syncVisibility();
         const parent = this._group.get_parent();
         // Follow the rendered box, including the BoxPointer slide animation.
         // Avoid attaching the blur to the menu or its offscreen-rendered bin.
@@ -236,22 +296,27 @@ export class SoftSurface {
         const [width, height] = this.menu.box.get_transformed_size();
         const [okStart, left, top] = parent.transform_stage_point(x, y);
         const [okEnd, right, bottom] = parent.transform_stage_point(x + width, y + height);
-        const values = [left, top, right - left, bottom - top];
+        // BinLayout can position a zero-sized sibling at its center. Convert
+        // parent coordinates into the backdrop group's local coordinates.
+        const values = [left - this._group.x, top - this._group.y, right - left, bottom - top];
         if (!okStart || !okEnd || !values.every(Number.isFinite) || values[2] <= 0 || values[3] <= 0)
             return;
         const previous = [this._blur.x, this._blur.y, this._blur.width, this._blur.height];
         if (values.every((value, i) => Math.abs(value - previous[i]) < 0.01))
             return;
-        this._blur.set_position(left, top);
+        this._blur.set_position(values[0], values[1]);
         this._blur.set_size(values[2], values[3]);
+        this._panelTint?.set_position(values[0], values[1]);
+        this._panelTint?.set_size(values[2], values[3]);
         this._refreshWindowIntersections();
         // Geometry may change in before-paint, after BEFORE_REDRAW callbacks.
         // Invalidate the capture for this frame, including the first open frame.
-        this._effect.queue_repaint();
+        if (this._blur.mapped)
+            this._effect.queue_repaint();
     }
 
     _queueRepaint() {
-        if (this._later || !this._group?.visible || !this.menu.actor.mapped)
+        if (this._later || !this._blur?.mapped || !this.menu.actor.mapped)
             return;
         this._later = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
             this._later = 0;
@@ -270,18 +335,33 @@ export class SoftSurface {
         // Include a conservative sampling margin, as on the dock.
         const [x, y] = actor.get_transformed_position();
         const [width, height] = actor.get_transformed_size();
-        const [bx, by] = this._blur.get_transformed_position();
-        const [bw, bh] = this._blur.get_transformed_size();
-        if (![x, y, width, height, bx, by, bw, bh].every(Number.isFinite))
+        const bounds = this._getBlurBounds();
+        if (![x, y, width, height, bounds.x, bounds.y, bounds.right, bounds.bottom].every(Number.isFinite))
             return true;
-        const transformScale = Math.max(1, bw / this._blur.width || 1, bh / this._blur.height || 1);
-        const margin = Math.max(64, 3 * this._settings.get_int('blur-radius')) *
-            this._context.scale_factor * transformScale;
-        return x < bx + bw + margin && x + width > bx - margin &&
-            y < by + bh + margin && y + height > by - margin;
+        return x < bounds.right && x + width > bounds.x &&
+            y < bounds.bottom && y + height > bounds.y;
+    }
+
+    // Share stage bounds across window events; geometry/settings and frame
+    // boundaries invalidate them so ancestor transforms cannot persist in cache.
+    _getBlurBounds() {
+        if (!this._blurBounds) {
+            const [x, y] = this._blur.get_transformed_position();
+            const [width, height] = this._blur.get_transformed_size();
+            const transformScale = Math.max(1, width / this._blur.width || 1,
+                height / this._blur.height || 1);
+            const margin = Math.max(64, 3 * this._settings.get_int('blur-radius')) *
+                this._context.scale_factor * transformScale;
+            this._blurBounds = {
+                x: x - margin, y: y - margin,
+                right: x + width + margin, bottom: y + height + margin,
+            };
+        }
+        return this._blurBounds;
     }
 
     _refreshWindowIntersections() {
+        this._blurBounds = null;
         for (const [actor, record] of this._windows)
             record.affected = this._windowIntersectsBlur(actor);
     }
@@ -297,7 +377,7 @@ export class SoftSurface {
     }
 
     _trackWindow(actor) {
-        if (!this._group.visible || this._windows.has(actor) || !actor.get_meta_window)
+        if (!this._group.visible || !this._blur.visible || this._windows.has(actor) || !actor.get_meta_window)
             return;
         const signals = new Signals();
         const record = {signals, affected: this._windowIntersectsBlur(actor)};
@@ -365,6 +445,8 @@ export class SoftSurface {
         if (this._destroyed)
             return;
         this._destroyed = true;
+        this._panelFade?.remove_transition('value');
+        this._panelFade = null;
         this._signals.clear();
         for (const signals of this._children.values())
             signals.clear();
@@ -379,10 +461,12 @@ export class SoftSurface {
         this._group?.destroy();
         this._group = null;
         this._blur = null;
+        this._panelTint = null;
         this._effect = null;
         if (!menuDestroyed) {
             this.menu.box.set_style(this._originalBoxStyle);
-            this.menu.actor.set_style(this._originalMenuStyle);
+            if (!this._options.plain)
+                this.menu.actor.set_style(this._originalMenuStyle);
         }
         this._settings = null;
     }

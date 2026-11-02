@@ -1,0 +1,94 @@
+{
+  "version": "7-beta.1",
+  "date": "2026-11-02",
+  "new_options_default": false,
+  "new_options": [
+    "osd-windows",
+    "workspace-switcher",
+    "screenshot-ui",
+    "popup-menus",
+    "overview-background",
+    "lock-screen"
+  ],
+  "tests": {
+    "gnome50-surfaces-remaining": {
+      "passed": true,
+      "idle_frames": 0,
+      "preferences": {
+        "passed": true,
+        "output": "Preferences: controls, defaults, bidirectional bindings and reset passed"
+      },
+      "checks": {
+        "remaining-options-default-off": true,
+        "osd-foreground-sharp": true,
+        "osd-windows-disable-restores-style": true,
+        "osd-close-hides-blur": true,
+        "workspace-all-visible-monitors-aligned": true,
+        "workspace-switcher-disable-restores-style": true,
+        "workspace-destroy-cleanup": true,
+        "popup-main-menus-not-duplicated": true,
+        "popup-menus-disable-restores-style": true,
+        "popup-close-hides-blur": true,
+        "popup-destroy-cleanup": true,
+        "screenshot-ui-disable-restores-style": true,
+        "screenshot-source-unmodified": true,
+        "screenshot-close-hides-blur": true,
+        "overview-wallpaper-mapped": true,
+        "overview-native-actor-blur": true,
+        "overview-foreground-sharp": true,
+        "search-wallpaper-mapped": true,
+        "overview-disable-cleanup": true,
+        "lock-custom-effect-attached": true,
+        "lock-custom-values": true,
+        "lock-native-values-preserved": true,
+        "extension-active-in-unlock-mode": true,
+        "regular-surfaces-hidden-in-unlock-mode": true,
+        "lock-disable-restores-native": true,
+        "lock-destroy-cleanup": true
+      }
+    },
+    "gnome50-native-surfaces-remaining": {
+      "passed": true,
+      "idle_frames": 0,
+      "preferences": {
+        "passed": true,
+        "output": "Preferences: controls, defaults, bidirectional bindings and reset passed"
+      },
+      "checks": {
+        "remaining-options-default-off": true,
+        "osd-foreground-sharp": true,
+        "osd-windows-disable-restores-style": true,
+        "osd-close-hides-blur": true,
+        "workspace-all-visible-monitors-aligned": true,
+        "workspace-switcher-disable-restores-style": true,
+        "workspace-destroy-cleanup": true,
+        "popup-main-menus-not-duplicated": true,
+        "popup-menus-disable-restores-style": true,
+        "popup-close-hides-blur": true,
+        "popup-destroy-cleanup": true,
+        "screenshot-ui-disable-restores-style": true,
+        "screenshot-source-unmodified": true,
+        "screenshot-close-hides-blur": true,
+        "overview-wallpaper-mapped": true,
+        "overview-native-actor-blur": true,
+        "overview-foreground-sharp": true,
+        "search-wallpaper-mapped": true,
+        "overview-disable-cleanup": true,
+        "lock-custom-effect-attached": true,
+        "lock-custom-values": true,
+        "lock-native-values-preserved": true,
+        "extension-active-in-unlock-mode": true,
+        "regular-surfaces-hidden-in-unlock-mode": true,
+        "lock-disable-restores-native": true,
+        "lock-destroy-cleanup": true
+      }
+    }
+  },
+  "sha256": "e17bd71e8c02d1b52c94813fabf6a7c4596e63605d6da7931fb83df9cfc95d40",
+  "limitations": [
+    "Only GNOME 50 tested",
+    "Lock wallpaper actor and unlock session mode tested privately, without physical lock/authentication",
+    "No physical suspend or real multi-monitor validation",
+    "No GPU benchmark"
+  ]
+}

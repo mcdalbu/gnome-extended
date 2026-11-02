@@ -2,8 +2,20 @@
     "uuid": "gnome-shell-soft@local",
     "name": "Gnome Shell Soft",
     "url": "https://github.com/mcdalbu/gnome-shell-soft",
-    "description": "Blur dinâmico e transparência no painel de notificações/calendário e no Quick Settings, com ajustes independentes do Dash to Dock Soft.",
-    "shell-version": ["45", "46", "47", "48", "49", "50"],
-    "version": 4,
-    "settings-schema": "org.gnome.shell.extensions.gnome-shell-soft"
+    "description": "Blur dinâmico em menus, diálogos, notificações, pastas, barra, alternadores, volume/brilho, captura, overview e tela de bloqueio, com controles independentes.",
+    "shell-version": [
+        "45",
+        "46",
+        "47",
+        "48",
+        "49",
+        "50"
+    ],
+    "version": 7,
+    "settings-schema": "org.gnome.shell.extensions.gnome-shell-soft",
+    "version-name": "7-beta.1",
+    "session-modes": [
+        "user",
+        "unlock-dialog"
+    ]
 }

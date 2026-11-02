@@ -9,6 +9,50 @@
       <default>true</default>
       <summary>Configurações rápidas</summary>
     </key>
+    <key name="system-dialogs" type="b">
+      <default>true</default>
+      <summary>Diálogos do sistema</summary>
+    </key>
+    <key name="notification-banners" type="b">
+      <default>true</default>
+      <summary>Notificações flutuantes</summary>
+    </key>
+    <key name="app-folders" type="b">
+      <default>true</default>
+      <summary>Pastas de aplicativos</summary>
+    </key>
+    <key name="top-panel" type="b">
+      <default>true</default>
+      <summary>Barra superior</summary>
+    </key>
+    <key name="window-switcher" type="b">
+      <default>true</default>
+      <summary>Alternador de janelas</summary>
+    </key>
+    <key name="osd-windows" type="b">
+      <default>false</default>
+      <summary>Volume e brilho</summary>
+    </key>
+    <key name="workspace-switcher" type="b">
+      <default>false</default>
+      <summary>Troca de área de trabalho</summary>
+    </key>
+    <key name="screenshot-ui" type="b">
+      <default>false</default>
+      <summary>Captura de tela</summary>
+    </key>
+    <key name="popup-menus" type="b">
+      <default>false</default>
+      <summary>Menus contextuais</summary>
+    </key>
+    <key name="overview-background" type="b">
+      <default>false</default>
+      <summary>Overview, grade e pesquisa</summary>
+    </key>
+    <key name="lock-screen" type="b">
+      <default>false</default>
+      <summary>Tela de bloqueio</summary>
+    </key>
     <key name="blur-radius" type="i">
       <default>30</default>
       <range min="1" max="100"/>

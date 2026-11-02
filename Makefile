@@ -1,7 +1,7 @@
 UUID = gnome-shell-soft@local
-VERSION = 4
+VERSION = 7-beta.1
 ZIP = $(UUID)_v$(VERSION).zip
-SOURCES = metadata.json extension.js softSurface.js signals.js blurBackend.js blurRedrawGuard.js prefs.js COPYING README.md
+SOURCES = metadata.json extension.js softSurface.js shellSurfaces.js shellBackgrounds.js signals.js blurBackend.js blurRedrawGuard.js prefs.js COPYING README.md
 
 .PHONY: all check zip-file clean
 all: schemas/gschemas.compiled

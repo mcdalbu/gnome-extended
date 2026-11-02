@@ -35,7 +35,7 @@ function assert(condition, message) {
     if (!condition)
         throw new Error(message);
 }
-assert(spins.length === 4 && switches.length === 2, 'All controls exist');
+assert(spins.length === 4 && switches.length === 13, 'All controls exist');
 const keys = ['blur-radius', 'opacity', 'brightness', 'corner-radius'];
 for (const [index, key] of keys.entries()) {
     const row = spins[index];
@@ -45,9 +45,19 @@ for (const [index, key] of keys.entries()) {
     settings.set_int(key, 64);
     assert(row.value === 64, `${key}: settings update UI`);
 }
-switches[0].active = false;
-assert(!settings.get_boolean('notifications'), 'Notification switch binding');
+const surfaceKeys = ['notifications', 'quick-settings', 'system-dialogs',
+    'notification-banners', 'app-folders', 'top-panel', 'window-switcher',
+    'osd-windows', 'workspace-switcher', 'screenshot-ui', 'popup-menus',
+    'overview-background', 'lock-screen'];
+for (const [index, key] of surfaceKeys.entries()) {
+    assert(switches[index].active === settings.get_boolean(key), `${key}: default binding`);
+    switches[index].active = false;
+    assert(!settings.get_boolean(key), `${key}: switch writes settings`);
+    settings.set_boolean(key, true);
+    assert(switches[index].active, `${key}: settings update switch`);
+}
 reset.emit('clicked');
+assert(surfaceKeys.every(key => settings.get_boolean(key) === settings.get_default_value(key).get_boolean()), 'All switches reset to their schema defaults');
 assert(settings.get_int('opacity') === 55 && settings.get_boolean('notifications'), 'Reset defaults');
 window.destroy();
 print('Preferences: controls, defaults, bidirectional bindings and reset passed');
