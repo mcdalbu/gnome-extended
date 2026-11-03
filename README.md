@@ -1,4 +1,4 @@
-# Gnome Shell Soft
+# Gnome Extended
 
 Extensão independente para aplicar blur dinâmico e transparência aos menus de
 **notificações/calendário** e **Quick Settings**, **diálogos do sistema**,
@@ -6,13 +6,13 @@ Extensão independente para aplicar blur dinâmico e transparência aos menus de
 **alternador de janelas**, **volume/brilho**, **troca de área de trabalho**,
 **menus contextuais**, **captura de tela**, **fundo do overview/pesquisa** e
 **papel de parede da tela de bloqueio**.
-Nome: **Gnome Shell Soft** · UUID: `gnome-shell-soft@local` · Versão: **8**.
+Nome: **Gnome Extended** · UUID: `gnome-extended@local` · Versão: **9**.
 
-Repositório: [mcdalbu/gnome-shell-soft](https://github.com/mcdalbu/gnome-shell-soft).
+Repositório: [mcdalbu/gnome-extended](https://github.com/mcdalbu/gnome-extended).
 
-Usa o mesmo método do Dash to Dock Soft: uma camada `Meta.BackgroundGroup`
+Usa o mesmo método do Dash to Dock Extended: uma camada `Meta.BackgroundGroup`
 separada, atrás do menu, com `BlurEffect` em modo `BACKGROUND`. Os textos,
-ícones e botões continuam nítidos. Não requer Dash to Dock Soft instalado e não
+ícones e botões continuam nítidos. Não requer Dash to Dock Extended instalado e não
 modifica seu código nem suas configurações. O efeito acompanha as janelas atrás
 das superfícies, não apenas o papel de parede. Os grupos de superfícies podem
 ser ativados independentemente nas preferências.
@@ -23,24 +23,24 @@ Na pasta desta extensão:
 
 ```bash
 make zip-file
-gnome-extensions install gnome-shell-soft@local_v8.zip
+gnome-extensions install gnome-extended@local_v9.zip
 ```
 
 Encerre a sessão e entre novamente para o Shell reconhecer uma extensão nova.
 Depois:
 
 ```bash
-gnome-extensions enable gnome-shell-soft@local
-gnome-extensions prefs gnome-shell-soft@local
+gnome-extensions enable gnome-extended@local
+gnome-extensions prefs gnome-extended@local
 ```
 
-Para atualizar, use `gnome-extensions install --force gnome-shell-soft@local_v8.zip`.
-Para desativar, use `gnome-extensions disable gnome-shell-soft@local`.
+Para atualizar, use `gnome-extensions install --force gnome-extended@local_v9.zip`.
+Para desativar, use `gnome-extensions disable gnome-extended@local`.
 
 ## Preferências
 
 As alterações são aplicadas ao vivo e salvas no schema próprio
-`org.gnome.shell.extensions.gnome-shell-soft`.
+`org.gnome.shell.extensions.gnome-extended`.
 
 | Opção | Padrão | Intervalo |
 | --- | --- | --- |
@@ -74,7 +74,7 @@ independentes e os ajustes de aparência são compartilhados entre as superfíci
 ## Backend e cantos arredondados
 
 O seletor de backend e a proteção contra redesenho parcial foram reaproveitados
-do Dash to Dock Soft. A extensão tenta carregar `gi://Blur` (GNOME Rounded Blur),
+do Dash to Dock Extended. A extensão tenta carregar `gi://Blur` (GNOME Rounded Blur),
 valida o tipo GObject e usa seu efeito e enum em conjunto. Na ausência de uma
 biblioteca compatível, usa `Shell.BlurEffect`. Detecta as propriedades `radius`
 ou `sigma` e `corner-radius` em tempo de execução.
@@ -88,7 +88,7 @@ instalado; após instalá-la, encerre e reabra a sessão.
 
 Desative no Blur my Shell ou em outras extensões os efeitos que atinjam estes
 mesmos menus, para evitar duas extensões controlando seu fundo simultaneamente.
-O blur do Dash to Dock Soft pode continuar ativo.
+O blur do Dash to Dock Extended pode continuar ativo.
 
 ## Ciclo de vida e desempenho
 
@@ -155,12 +155,12 @@ As preferências são construídas em GTK e seus vínculos bidirecionais e resta
 de padrões são exercitados. A suspensão física precisa ser verificada na sessão
 real. O helper de teste libera Eval somente no D-Bus privado e não entra no ZIP.
 
-Código derivado do Dash to Dock Soft: `blurBackend.js` e `blurRedrawGuard.js`.
+Código derivado do Dash to Dock Extended: `blurBackend.js` e `blurRedrawGuard.js`.
 O método de backend acompanha a integração GNOME Rounded Blur do
 [Blur my Shell](https://github.com/aunetx/blur-my-shell).
 Licença: GPL-2.0-or-later; veja `COPYING`.
 
-## Escala comum com Dash to Dock Soft (versão 4)
+## Escala comum com Dash to Dock Extended (versão 4)
 
 O módulo `blurBackend.js` mantém o mesmo cálculo nas duas extensões: blur 24
 representa raio 24 em pixels lógicos (multiplicado pela escala do Shell;
@@ -213,7 +213,7 @@ são liberados quando seus atores são destruídos. A barra superior visível ma
 a proteção contra redesenho parcial nos frames existentes: pode aumentar o custo
 de GPU durante atualizações da tela. Não há benchmark de ganho de desempenho.
 
-Gerar: `make zip-file`. Pacote: `gnome-shell-soft@local_v8.zip`.
+Gerar: `make zip-file`. Pacote: `gnome-extended@local_v9.zip`.
 O UUID e as configurações existentes são preservados. Para voltar, reinstale a
 beta 5-beta.1 ou a versão 4 e reinicie a sessão.
 
@@ -378,7 +378,7 @@ Publica os recursos e correções validados até a beta 7-beta.5: controles
 independentes de blur nas superfícies do Shell, cantos nativos, opacidade da
 barra por tema e transição conjunta de cor e transparência.
 
-Instalação: `gnome-extensions install --force gnome-shell-soft@local_v8.zip`.
+Instalação: `gnome-extensions install --force gnome-extended@local_v9.zip`.
 Encerre a sessão e entre novamente após atualizar.
 
 
@@ -391,3 +391,11 @@ visual nativo do GNOME nesse tema; a troca de tema aplica a escolha automaticame
 O controle geral **Barra superior** continua desativando o efeito nos dois temas.
 As opções de opacidade automática continuam valendo nos temas com o efeito ativo,
 incluindo o fade de cor e transparência e o desaparecimento no overview.
+
+## GNOME Shell 51
+
+Esta versão inclui GNOME Shell 51 nos metadados. O teste integrado de menus, aparência, autohide, recuperação e preferências passou em uma sessão isolada do GNOME Shell 51.1, com Gnome Extended e Dash to Dock Extended ativos em conjunto.
+
+## Renomeação
+
+A extensão usa o novo nome e UUID. O caminho de armazenamento dconf foi preservado para manter as preferências existentes. Ao instalar o novo UUID, desative a extensão de nome antigo antes de ativar a nova.

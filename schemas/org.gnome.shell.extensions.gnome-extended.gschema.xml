@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.gnome-shell-soft" path="/org/gnome/shell/extensions/gnome-shell-soft/">
+  <schema id="org.gnome.shell.extensions.gnome-extended" path="/org/gnome/shell/extensions/gnome-shell-soft/">
     <key name="notifications" type="b">
       <default>true</default>
       <summary>Notificações e calendário</summary>

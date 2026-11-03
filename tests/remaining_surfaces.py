@@ -104,7 +104,7 @@ def test_remaining(evaluate, check, screenshot, results):
     # Eval is intentionally unavailable while in unlock mode. Schedule the
     # observations and return to user mode in the same private Shell call.
     evaluate('imports.gi.GLib.timeout_add_once(imports.gi.GLib.PRIORITY_DEFAULT,400,()=>{try {'
-             'globalThis.unlockChecks={enabled:Main.extensionManager.lookup("gnome-shell-soft@local").state===1 && !!soft._backgrounds,'
+             'globalThis.unlockChecks={enabled:Main.extensionManager.lookup("gnome-extended@local").state===1 && !!soft._backgrounds,'
              'hidden:[...soft._shellSurfaces._records.values()].every(r=>!r.surface || !r.surface._group.visible)};'
              '}finally{Main.sessionMode.popMode("unlock-dialog");}});Main.sessionMode.pushMode("unlock-dialog");')
     time.sleep(0.9)

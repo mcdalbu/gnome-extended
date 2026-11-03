@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-export default class GnomeShellSoftPreferences extends ExtensionPreferences {
+export default class GnomeExtendedPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
         const page = new Adw.PreferencesPage({
@@ -12,7 +12,7 @@ export default class GnomeShellSoftPreferences extends ExtensionPreferences {
         });
         window.add(page);
         const surfaces = new Adw.PreferencesGroup({
-            title: 'Gnome Shell Soft',
+            title: 'Gnome Extended',
             description: 'Blur dinâmico e transparência, aplicados ao vivo.',
         });
         page.add(surfaces);

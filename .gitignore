@@ -1,6 +1,8 @@
 schemas/gschemas.compiled
 *.zip
-/gnome-shell-soft@local_v*/
+/gnome-extended@local_v*/
 /validation/
 __pycache__/
 *.pyc
+
+/gnome-shell-soft@local_v*/

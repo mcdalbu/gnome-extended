@@ -5,8 +5,8 @@ import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
 metadata = json.loads((root / 'metadata.json').read_text())
-assert metadata['uuid'] == 'gnome-shell-soft@local'
-assert metadata['name'] == 'Gnome Shell Soft'
+assert metadata['uuid'] == 'gnome-extended@local'
+assert metadata['name'] == 'Gnome Extended'
 schema = ET.parse(root / 'schemas' / f"{metadata['settings-schema']}.gschema.xml").getroot()[0]
 assert schema.attrib['id'] == metadata['settings-schema']
 assert schema.attrib['path'] == '/org/gnome/shell/extensions/gnome-shell-soft/'

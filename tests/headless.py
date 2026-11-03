@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """Integration test in a private D-Bus/Wayland session; never changes the desktop.
 
-Run with /usr/bin/python3 tests/headless.py. Requires GNOME Shell 50, PyGObject
+Run with /usr/bin/python3 tests/headless.py. Requires GNOME Shell 50 or 51, PyGObject
 and a usable renderer. The temporary helper enables Eval only on the test bus.
 """
 import json
@@ -15,11 +15,11 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-UUID = 'gnome-shell-soft@local'
+UUID = 'gnome-extended@local'
 
 
 def stage():
-    with tempfile.TemporaryDirectory(prefix='gnome-shell-soft-test-', ignore_cleanup_errors=True) as temporary:
+    with tempfile.TemporaryDirectory(prefix='gnome-extended-test-', ignore_cleanup_errors=True) as temporary:
         base = Path(temporary)
         extension = base / 'data/gnome-shell/extensions' / UUID
         shutil.copytree(ROOT, extension, ignore=shutil.ignore_patterns('*.zip', '.git', '*@local_v*', 'validation', 'tests'))
@@ -30,7 +30,7 @@ def stage():
         helper.mkdir()
         (helper / 'metadata.json').write_text(json.dumps({
             'uuid': helper.name, 'name': 'Isolated test helper',
-            'description': 'Private test session only', 'shell-version': ['50'],
+            'description': 'Private test session only', 'shell-version': ['50', '51'],
         }))
         (helper / 'extension.js').write_text('''
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -122,7 +122,7 @@ def test():
             if shell.poll() is not None:
                 raise RuntimeError('Headless Shell exited; see validation/gnome50-session.log')
             try:
-                if evaluate('Main.extensionManager.lookup("gnome-shell-soft@local")?.state === 1'):
+                if evaluate('Main.extensionManager.lookup("gnome-extended@local")?.state === 1'):
                     break
             except Exception:
                 pass
@@ -130,7 +130,7 @@ def test():
         else:
             raise RuntimeError('Extension did not enable; see validation/gnome50-session.log')
 
-        evaluate('globalThis.soft = Main.extensionManager.lookup("gnome-shell-soft@local").stateObj; Main.overview.hide();')
+        evaluate('globalThis.soft = Main.extensionManager.lookup("gnome-extended@local").stateObj; Main.overview.hide();')
         evaluate('(async () => { globalThis.popupAnimation = '
                  '(await import("resource:///org/gnome/shell/ui/boxpointer.js")).PopupAnimation; })()')
         time.sleep(1)
@@ -142,7 +142,7 @@ def test():
                 testBackdrop.add_child(new St.Widget({x, y:32, width:80, height:968,
                     style:`background-color: ${colors[(x/80)%colors.length]};`}));
             for (let y = 120; y < 1000; y += 180)
-                testBackdrop.add_child(new St.Label({x:60, y, text:'Gnome Shell Soft  •  Blur dinâmico',
+                testBackdrop.add_child(new St.Label({x:60, y, text:'Gnome Extended  •  Blur dinâmico',
                     style:'font-size: 38px; font-weight: bold; color: white;'}));
             Main.uiGroup.insert_child_above(testBackdrop, global.window_group);
         })()''')
@@ -189,7 +189,7 @@ def test():
                 return [x-bx,y-by,w-bw,h-bh].every(v => Math.abs(v) < 1);
             })()''')
             check(f'{key}-native-corners-preserved', '!surface._boxSuffix.includes("border-radius") && [0,1,2,3].every(c=>surface._themeCorners[c]===surface.menu.box.get_theme_node().get_border_radius(c))')
-            check(f'{key}-sharp-content', 'surface.menu.box.opacity === 255 && surface.menu.actor.get_effect("gnome-shell-soft-blur") === null')
+            check(f'{key}-sharp-content', 'surface.menu.box.opacity === 255 && surface.menu.actor.get_effect("gnome-extended-blur") === null')
             check(f'{key}-stacking', '(() => { const children = surface.menu.actor.get_parent().get_children(); '
                   'return children.indexOf(surface._group) === children.indexOf(surface.menu.actor) - 1; })()')
             check(f'{key}-layout-style', 'surface.menu.actor.get_style().includes("max-height") && '

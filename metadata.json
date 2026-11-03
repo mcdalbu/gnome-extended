@@ -1,21 +1,22 @@
 {
-    "uuid": "gnome-shell-soft@local",
-    "name": "Gnome Shell Soft",
-    "url": "https://github.com/mcdalbu/gnome-shell-soft",
-    "description": "Blur dinâmico em menus, diálogos, notificações, pastas, barra, alternadores, volume/brilho, captura, overview e tela de bloqueio, com controles independentes.",
-    "shell-version": [
-        "45",
-        "46",
-        "47",
-        "48",
-        "49",
-        "50"
-    ],
-    "version": 8,
-    "settings-schema": "org.gnome.shell.extensions.gnome-shell-soft",
-    "version-name": "8",
-    "session-modes": [
-        "user",
-        "unlock-dialog"
-    ]
+  "uuid": "gnome-extended@local",
+  "name": "Gnome Extended",
+  "url": "https://github.com/mcdalbu/gnome-extended",
+  "description": "Blur dinâmico em menus, diálogos, notificações, pastas, barra, alternadores, volume/brilho, captura, overview e tela de bloqueio, com controles independentes.",
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50",
+    "51"
+  ],
+  "version": 9,
+  "settings-schema": "org.gnome.shell.extensions.gnome-extended",
+  "version-name": "9",
+  "session-modes": [
+    "user",
+    "unlock-dialog"
+  ]
 }

@@ -7,7 +7,7 @@ import {Signals} from './signals.js';
 import {ShellSurfaces} from './shellSurfaces.js';
 import {ShellBackgrounds} from './shellBackgrounds.js';
 
-export default class GnomeShellSoft extends Extension {
+export default class GnomeExtended extends Extension {
     enable() {
         this._settings = this.getSettings();
         this._signals = new Signals();

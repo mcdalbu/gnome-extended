@@ -173,7 +173,7 @@ export class SoftSurface {
         this._radiusProperty = properties.includes('radius') ? 'radius' : 'sigma';
         this._hasCorners = properties.includes('corner-radius');
         this._effect = new BlurBackend.BlurEffect({mode: BlurBackend.BlurMode.BACKGROUND});
-        this._blur.add_effect_with_name('gnome-shell-soft-blur', this._effect);
+        this._blur.add_effect_with_name('gnome-extended-blur', this._effect);
         this._needsEffect = false;
         this._updateEffect();
     }
