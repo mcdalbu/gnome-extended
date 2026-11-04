@@ -155,6 +155,10 @@ def test():
         if os.environ.get('SOFT_TEST_REMAINING'):
             from remaining_surfaces import test_remaining
             test_remaining(evaluate, check, screenshot, results)
+        check('app-grid-integrated', '!!soft._appGrid._file && soft._appGrid._css.includes("icon-shadow")')
+        if os.environ.get('SOFT_TEST_DOCK_FIXTURES'):
+            from dock_surfaces import test_docks
+            test_docks(evaluate, check, results)
         check('two-surfaces', 'soft._surfaces.size === 2')
         results['backend'] = evaluate('(() => { const s = soft._surfaces.get("quick-settings"); '
                                       'return {type: s._effect.constructor.name, corners: s._hasCorners, '
@@ -190,6 +194,7 @@ def test():
             })()''')
             check(f'{key}-native-corners-preserved', '!surface._boxSuffix.includes("border-radius") && [0,1,2,3].every(c=>surface._themeCorners[c]===surface.menu.box.get_theme_node().get_border_radius(c))')
             check(f'{key}-sharp-content', 'surface.menu.box.opacity === 255 && surface.menu.actor.get_effect("gnome-extended-blur") === null')
+            results[f'{key}-siblings'] = evaluate('surface.menu.actor.get_parent().get_children().map(a => ({name:a.name, visible:a.visible}))')
             check(f'{key}-stacking', '(() => { const children = surface.menu.actor.get_parent().get_children(); '
                   'return children.indexOf(surface._group) === children.indexOf(surface.menu.actor) - 1; })()')
             check(f'{key}-layout-style', 'surface.menu.actor.get_style().includes("max-height") && '
@@ -219,7 +224,7 @@ def test():
             check(f'{key}-hidden-no-window-signals', 'surface._windows.size === 0')
             evaluate('surface.menu.open();')
             time.sleep(0.4)
-            check(f'{key}-recreated', 'surface._effect !== previousEffect')
+            check(f'{key}-effect-reused', 'surface._effect === previousEffect')
             evaluate('surface.menu.close();')
             time.sleep(0.4)
 
@@ -255,6 +260,9 @@ def test():
             assert all(frame['open'] or not frame['blurMapped']
                        for frame in results[f'{key}-closing-frames']), 'Blur remains after menu close'
 
+        if os.environ.get('SOFT_TEST_BLUR_RATE'):
+            from blur_rate import test_blur_rate
+            test_blur_rate(evaluate, check, results, shell.pid)
         evaluate('soft._settings.set_int("opacity", 35); soft._settings.set_int("blur-radius", 47); '
                  'soft._settings.set_int("brightness", 75);')
         time.sleep(0.3)
@@ -407,11 +415,38 @@ def test():
         check('extension-reenable', 'soft._surfaces.size === 2')
         display_env = dict(os.environ, WAYLAND_DISPLAY='wayland-0', GDK_BACKEND='wayland', GSETTINGS_BACKEND='memory',
                            GI_TYPELIB_PATH='/usr/lib64/gnome-shell/girepository-1.0:/usr/lib64/gnome-shell')
-        prefs = subprocess.run(['gjs', '-m', str(ROOT / 'tests/prefs.js'), str(ROOT)],
-                               env=display_env, capture_output=True, text=True, timeout=15)
-        results['preferences'] = {'passed': prefs.returncode == 0, 'output': prefs.stdout.strip()}
-        if prefs.returncode:
-            raise RuntimeError(prefs.stderr)
+        if os.environ.get('SOFT_TEST_PREFS_CAPTURE'):
+            evaluate('testBackdrop.hide();')
+            with tempfile.TemporaryDirectory(prefix='gnome-tabs-capture-') as temporary:
+                capture = Path(temporary)
+                (capture / 'command').write_text('elements')
+                display_env['SOFT_PREFS_CAPTURE'] = str(capture)
+                prefs = subprocess.Popen(['gjs', '-m', str(ROOT / 'tests/prefs.js'), str(ROOT)],
+                                         env=display_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                try:
+                    for page in ['elements', 'dock', 'panel', 'blur', 'icons']:
+                        (capture / 'command').write_text(page)
+                        deadline = time.monotonic() + 10
+                        while not (capture / 'ready').exists() or (capture / 'ready').read_text() != page:
+                            if prefs.poll() is not None or time.monotonic() > deadline:
+                                raise RuntimeError('Preferences capture did not become ready: ' + page)
+                            time.sleep(0.05)
+                        screenshot('preferences-' + page)
+                    (capture / 'command').write_text('done')
+                    stdout, stderr = prefs.communicate(timeout=10)
+                finally:
+                    if prefs.poll() is None:
+                        prefs.terminate()
+                        prefs.wait(timeout=5)
+                results['preferences'] = {'passed': prefs.returncode == 0, 'output': stdout.strip()}
+                if prefs.returncode:
+                    raise RuntimeError(stderr)
+        else:
+            prefs = subprocess.run(['gjs', '-m', str(ROOT / 'tests/prefs.js'), str(ROOT)],
+                                   env=display_env, capture_output=True, text=True, timeout=15)
+            results['preferences'] = {'passed': prefs.returncode == 0, 'output': prefs.stdout.strip()}
+            if prefs.returncode:
+                raise RuntimeError(prefs.stderr)
         results['passed'] = True
         print(json.dumps(results, indent=2))
     finally:

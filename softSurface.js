@@ -8,9 +8,10 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as LoginManager from 'resource:///org/gnome/shell/misc/loginManager.js';
 
-import {loadBlurBackend, applyBlurParameters, opacityFraction} from './blurBackend.js';
+import {loadBlurBackend, applyBlurParameters, applyBlurRate, opacityFraction} from './blurBackend.js';
 import {BlurRedrawGuard} from './blurRedrawGuard.js';
 import {Signals} from './signals.js';
+import {FrameSignals} from './frameSignals.js';
 import {PanelOpacity} from './panelOpacity.js';
 
 const BlurBackend = await loadBlurBackend(Shell, GObject);
@@ -27,6 +28,7 @@ export class SoftSurface {
         this._options = options;
         this._settings = settings;
         this._signals = new Signals();
+        this._frames = new FrameSignals();
         this._children = new Map();
         this._windows = new Map();
         this._guard = new BlurRedrawGuard(Clutter, Meta);
@@ -84,12 +86,12 @@ export class SoftSurface {
                     const anchor = options.anchor ?? menu.actor;
                     const parent = anchor.get_parent();
                     parent.set_child_below_sibling(this._group, anchor);
+                    this._stackPending = true;
                     this.update();
                 } else {
                     // The menu actor stays mapped through its exit animation.
                     // End the separate backdrop when closing starts, including
                     // interrupted animations and switches between panel menus.
-                    this._needsEffect = true;
                     this._syncVisibility();
                 }
             });
@@ -117,8 +119,8 @@ export class SoftSurface {
                 onDestroyed();
             });
             this._signals.connect(menu.actor, 'notify::mapped', () => {
-                // Discard cached framebuffer resources on every reopening.
-                this._needsEffect = true;
+                // Reuse GPU resources on ordinary reopening; recovery after
+                // sleep/lock still explicitly replaces the effect.
                 this._syncVisibility();
                 this._queueRepaint();
             });
@@ -132,16 +134,23 @@ export class SoftSurface {
             if (Main.screenShield)
                 this._signals.connect(Main.screenShield, 'active-changed', () => this._recover());
 
-            this._signals.connect(global.stage, 'before-update', (_stage, view) => {
+            this._frames.connect(global.stage, 'before-update', (_stage, view) => {
                 this._blurBounds = null;
                 this._syncVisibility();
+                if (!this._group.visible)
+                    return;
+                if (this._stackPending) {
+                    const anchor = this._options.anchor ?? this.menu.actor;
+                    anchor.get_parent().set_child_below_sibling(this._group, anchor);
+                    this._stackPending = false;
+                }
                 this._syncGeometry(false);
                 this._guard.begin(this._blur, view);
                 if (this._blur.mapped && GLib.get_monotonic_time() < this._styleUntil)
                     this._effect.queue_repaint();
             });
-            this._signals.connect(global.stage, 'before-paint', () => this._syncGeometry());
-            this._signals.connect(global.stage, 'after-update', () => {
+            this._frames.connect(global.stage, 'before-paint', () => this._syncGeometry());
+            this._frames.connect(global.stage, 'after-update', () => {
                 this._blurBounds = null;
                 this._guard.end();
             });
@@ -179,6 +188,7 @@ export class SoftSurface {
     }
 
     _updateEffect() {
+        applyBlurRate(this._effect, this._settings.get_int('blur-rate'));
         const scale = this._context.scale_factor;
         applyBlurParameters(this._effect, this._radiusProperty,
             this._settings.get_int('blur-radius'), scale, this._settings.get_int('brightness'));
@@ -313,8 +323,8 @@ export class SoftSurface {
             this._guard.end();
         } else {
             if (!wasVisible) {
+                this._effect.invalidate?.();
                 this._blurBounds = null;
-                this._needsEffect = true;
                 for (const actor of global.get_window_actors())
                     this._trackWindow(actor);
                 this._refreshWindowIntersections();
@@ -506,6 +516,7 @@ export class SoftSurface {
         this._panelPolicy = null;
         this._panelFade?.remove_transition('value');
         this._panelFade = null;
+        this._frames.clear();
         this._signals.clear();
         for (const signals of this._children.values())
             signals.clear();

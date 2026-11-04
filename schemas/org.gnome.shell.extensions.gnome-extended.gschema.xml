@@ -85,5 +85,14 @@
       <range min="10" max="100"/>
       <summary>Brilho do desfoque em porcentagem</summary>
     </key>
+    <key name="blur-rate" type="i">
+      <default>0</default>
+      <range min="0" max="2"/>
+      <summary>Frequência do blur: 0 integral, 1 metade, 2 um quarto</summary>
+    </key>
+    <key name="docks" type="b">
+      <default>true</default>
+      <summary>Blur em Dash to Dock e forks compatíveis</summary>
+    </key>
   </schema>
 </schemalist>

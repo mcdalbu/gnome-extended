@@ -46,3 +46,9 @@ export function applyBlurParameters(effect, radiusProperty, radius, scale, brigh
     effect[radiusProperty] = radiusProperty === 'radius' ? physicalRadius : physicalRadius / 2;
     effect.brightness = opacityFraction(brightness);
 }
+
+// Optional beta backend capability. Native Shell fallback stays full-rate.
+export function applyBlurRate(effect, rate) {
+    if ('frame_divisor' in effect)
+        effect.frame_divisor = [1, 2, 4][rate] ?? 1;
+}

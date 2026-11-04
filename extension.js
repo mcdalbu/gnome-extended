@@ -2,6 +2,8 @@
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import {DockSurfaces} from './dockSurfaces.js';
+import {AppGrid} from './appGrid.js';
 import {SoftSurface} from './softSurface.js';
 import {Signals} from './signals.js';
 import {ShellSurfaces} from './shellSurfaces.js';
@@ -14,11 +16,15 @@ export default class GnomeExtended extends Extension {
         this._surfaces = new Map();
         this._shellSurfaces = new ShellSurfaces(this._settings);
         this._backgrounds = new ShellBackgrounds(this._settings);
+        this._docks = new DockSurfaces(this._settings);
         this._signals.connect(this._settings, 'changed', () => this._sync());
         this._signals.connect(Main.layoutManager, 'startup-complete', () => this._sync());
         try {
             this._shellSurfaces.start();
             this._backgrounds.start();
+            this._docks.start();
+            this._appGrid = new AppGrid(this.getSettings('org.gnome.shell.extensions.app-grid-extended'));
+            this._appGrid.start();
             this._sync();
         } catch (error) {
             this.disable();
@@ -29,6 +35,7 @@ export default class GnomeExtended extends Extension {
     _sync() {
         this._shellSurfaces.sync();
         this._backgrounds.sync();
+        this._docks.sync();
         const targets = [
             ['notifications', Main.panel.statusArea.dateMenu?.menu],
             ['quick-settings', Main.panel.statusArea.quickSettings?.menu],
@@ -53,6 +60,10 @@ export default class GnomeExtended extends Extension {
     }
 
     disable() {
+        this._docks?.destroy();
+        this._docks = null;
+        this._appGrid?.destroy();
+        this._appGrid = null;
         this._signals?.clear();
         this._backgrounds?.destroy();
         this._backgrounds = null;
