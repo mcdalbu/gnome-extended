@@ -6,6 +6,7 @@ import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import {ANIMATION_TIME} from 'resource:///org/gnome/shell/ui/overview.js';
 import * as LoginManager from 'resource:///org/gnome/shell/misc/loginManager.js';
 
 import {loadBlurBackend, applyBlurParameters, applyBlurRate, opacityFraction} from './blurBackend.js';
@@ -52,6 +53,24 @@ export class SoftSurface {
             });
             this._group.add_child(this._blur);
             if (options.panel) {
+                // The overview's solid backdrop disappears only after its
+                // animation ends. Crossfade that last input into the live
+                // desktop blur rather than exposing a different framebuffer.
+                this._panelCover = new St.Widget({reactive: false});
+                this._group.add_child(this._panelCover);
+                this._panelReveal = new St.Adjustment({
+                    actor: menu.actor, lower: 0, upper: 1,
+                    value: Main.layoutManager.overviewGroup.visible ? 0 : 1,
+                });
+                this._signals.connect(this._panelReveal, 'notify::value', () => this._syncVisibility());
+                this._signals.connect(Main.layoutManager.overviewGroup, 'notify::visible', () => {
+                    this._panelReveal.remove_transition('value');
+                    if (Main.layoutManager.overviewGroup.visible)
+                        this._panelReveal.value = 0;
+                    else
+                        this._panelReveal.ease(1, {duration: ANIMATION_TIME,
+                            mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+                });
                 // Tint and blur share one opacity, so there is no second CSS
                 // animation to leave the blur visible in the overview.
                 this._panelTint = new St.Widget({reactive: false});
@@ -212,6 +231,14 @@ export class SoftSurface {
         applyBlurParameters(this._effect, this._radiusProperty,
             this._settings.get_int('blur-radius') * fade, scale,
             100 + (this._settings.get_int('brightness') - 100) * fade);
+        if (this._panelCover) {
+            const color = Main.layoutManager.overviewGroup.get_theme_node().get_background_color();
+            const brightness = this._effect.brightness;
+            const [r, g, b] = [color.red, color.green, color.blue].map(c => Math.round(c * brightness));
+            const style = `background-color: rgba(${r}, ${g}, ${b}, ${color.alpha / 255}); transition-duration: 0ms;`;
+            if (this._panelCover.get_style() !== style)
+                this._panelCover.set_style(style);
+        }
     }
 
     _readThemeCorners() {
@@ -326,6 +353,10 @@ export class SoftSurface {
         const wasVisible = this._group.visible && this._blur.visible;
         this._group.visible = !!visible;
         this._blur.visible = !!blurVisible;
+        if (this._panelCover) {
+            this._panelCover.opacity = Math.round(255 * (1 - this._panelReveal.value));
+            this._panelCover.visible = blurVisible && this._panelCover.opacity > 0;
+        }
         if (!blurVisible) {
             for (const {signals} of this._windows.values())
                 signals.clear();
@@ -383,6 +414,8 @@ export class SoftSurface {
         this._blur.set_size(values[2], values[3]);
         this._panelTint?.set_position(values[0], values[1]);
         this._panelTint?.set_size(values[2], values[3]);
+        this._panelCover?.set_position(values[0], values[1]);
+        this._panelCover?.set_size(values[2], values[3]);
         this._updateEffectCorners();
         this._refreshWindowIntersections();
         // Geometry may change in before-paint, after BEFORE_REDRAW callbacks.
@@ -527,6 +560,8 @@ export class SoftSurface {
         this._destroyed = true;
         this._panelPolicy?.destroy();
         this._panelPolicy = null;
+        this._panelReveal?.remove_transition('value');
+        this._panelReveal = null;
         this._panelFade = null;
         this._frames.clear();
         this._signals.clear();
@@ -544,6 +579,7 @@ export class SoftSurface {
         this._group = null;
         this._blur = null;
         this._panelTint = null;
+        this._panelCover = null;
         this._effect = null;
         if (!menuDestroyed) {
             this.menu.box.set_style(this._originalBoxStyle);

@@ -1,3 +1,14 @@
+# GNOME Extended 14 — 5 de novembro de 2026
+
+- A passagem do painel sólido para o desktop desfocado agora tem um crossfade
+  próprio de 250 ms após o fundo do overview ser retirado.
+- A v13 animava o filtro, mas ele capturava o fundo sólido do overview até o
+  último frame. O desktop só entrava na captura quando o overview desaparecia.
+- A cobertura temporária usa a cor do tema e o brilho do efeito e desaparece
+  gradualmente. Não altera os textos, ícones ou a animação nativa do painel.
+- Novo teste com papel de parede e overview reais verifica essa troca de cena;
+  os testes anteriores com fundo sintético fixo não cobriam essa condição.
+
 # GNOME Extended 13 — 5 de novembro de 2026
 
 - Corrigido o snap do blur ao sair do overview: o raio e o escurecimento do

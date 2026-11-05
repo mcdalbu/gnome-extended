@@ -1,3 +1,25 @@
+# Validação da versão 14 — 5 de novembro de 2026
+
+GNOME Shell 51.1, sessões D-Bus/Wayland isoladas.
+
+- Cena real com papel de parede listrado e saída do overview em câmera lenta:
+  a v13 tinha contraste zero durante toda a saída e saltava para 32,35 quando
+  o overview era ocultado. Filtro e opacidade estavam animados; a entrada do
+  framebuffer era trocada instantaneamente.
+- Após a correção, a passagem apresenta contrastes intermediários de 2,36;
+  12,12; 19,14; 24,97; 29,17; 31,72 e 32,96 até estabilizar em 33,16.
+  A diferença de luminosidade na primeira troca de cena também é limitada.
+- Backend opcional: cena real, desfoque por pixels, superfícies, opacidade
+  automática e integração completa PASS. Backend nativo: cena real e
+  integração completa PASS. `make check`: PASS.
+- Recortes da animação revisados em `validation/panel-scene-crossfade.png`.
+  A animação própria tem 250 ms em velocidade normal e respeita as animações
+  do sistema por meio de St.Adjustment.
+
+Resultados em
+`validation/gnome50-surfaces-panel-policy-panel-blur-panel-scene-results.json`
+e `validation/gnome50-native-panel-scene-results.json`.
+
 # Validação da versão 13 — 5 de novembro de 2026
 
 GNOME Shell 51.1, sessões D-Bus/Wayland isoladas.

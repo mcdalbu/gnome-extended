@@ -84,6 +84,8 @@ def test():
         variant += '-panel-policy'
     if os.environ.get('SOFT_TEST_PANEL_BLUR'):
         variant += '-panel-blur'
+    if os.environ.get('SOFT_TEST_PANEL_SCENE'):
+        variant += '-panel-scene'
     log = (output / f'{variant}-session.log').open('w')
     shell = subprocess.Popen(['gnome-shell', '--headless', '--wayland', '--no-x11',
                               '--virtual-monitor=1440x1000'], stdout=log, stderr=log)
@@ -148,6 +150,9 @@ def test():
                     style:'font-size: 38px; font-weight: bold; color: white;'}));
             Main.uiGroup.insert_child_above(testBackdrop, global.window_group);
         })()''')
+        if os.environ.get('SOFT_TEST_PANEL_SCENE'):
+            from panel_scene import test_panel_scene
+            test_panel_scene(evaluate, check, screenshot, results)
         if os.environ.get('SOFT_TEST_PANEL_BLUR'):
             from panel_blur_fade import test_panel_blur_fade
             test_panel_blur_fade(evaluate, check, screenshot, results)
