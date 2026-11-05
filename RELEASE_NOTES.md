@@ -1,3 +1,9 @@
+# GNOME Extended 12 — 5 de novembro de 2026
+
+- Fade do blur e do fundo da barra superior sincronizado com o progresso do
+  overview, inclusive em temas com `transition-duration: 0ms` na barra.
+- O progresso também acompanha gestos, inversões e ativação durante o overview.
+
 # GNOME Extended 11 — 4 de novembro de 2026
 
 - Switches independentes de sombra para a grade/pastas e para os docks.

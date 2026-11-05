@@ -28,7 +28,7 @@ migrada para os dois switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v11.zip
+gnome-extensions install --force gnome-extended@local_v12.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua

@@ -60,13 +60,18 @@ export class SoftSurface {
                     this._updatePanelTint();
                     this._syncVisibility();
                 });
+                const overviewAdjustment = Main.overview._overview.controls._stateAdjustment;
+                const panelFade = () => 1 - Math.min(1, Math.max(0, overviewAdjustment.value));
                 this._panelFade = new St.Adjustment({
                     actor: menu.actor, lower: 0, upper: 1,
-                    value: Main.overview.visibleTarget ? 0 : 1,
+                    value: panelFade(),
                 });
                 this._signals.connect(this._panelFade, 'notify::value', () => this._syncVisibility());
-                this._signals.connect(Main.overview, 'showing', () => this._fadePanel(0));
-                this._signals.connect(Main.overview, 'hiding', () => this._fadePanel(1));
+                // Follow Shell's animation (including gestures and reversals).
+                // Panel CSS durations can be zero even with animations enabled.
+                this._signals.connect(overviewAdjustment, 'notify::value', () => {
+                    this._panelFade.value = panelFade();
+                });
                 this._signals.connect(St.Settings.get(), 'notify::color-scheme', () => this.update());
             }
             this._signals.connect(this._group, 'destroy', () => {
@@ -221,12 +226,6 @@ export class SoftSurface {
             width / 2, height / 2)));
         if (this._effect.corner_radius !== radius)
             this._effect.corner_radius = radius;
-    }
-
-    _fadePanel(target) {
-        const duration = this.menu.box.get_theme_node().get_transition_duration();
-        // Match StThemeNodeTransition's native CSS easing and theme duration.
-        this._panelFade.ease(target, {duration, mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD});
     }
 
     _updatePanelTint() {
@@ -514,7 +513,6 @@ export class SoftSurface {
         this._destroyed = true;
         this._panelPolicy?.destroy();
         this._panelPolicy = null;
-        this._panelFade?.remove_transition('value');
         this._panelFade = null;
         this._frames.clear();
         this._signals.clear();

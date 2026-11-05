@@ -42,9 +42,15 @@ def test_surfaces(evaluate, check, screenshot, results):
     check('panel-square-and-sharp', 'findSoft("top-panel")._cornerRadius()===0 && Main.panel.opacity===255')
     screenshot('surfaces-panel')
     check('panel-adwaita-dark-gray', '(() => {const c=findSoft("top-panel")._panelTint.get_theme_node().get_background_color(); return c.red===46 && c.green===46 && c.blue===50;})()')
+    # Themes may disable panel CSS transitions independently of Shell animations.
+    # The backdrop must still follow the overview's rendered progress.
+    evaluate('globalThis.panelFadeOriginalStyle=Main.panel.get_style(); '
+             'Main.panel.set_style(Main.panel.get_style()+" transition-duration: 0ms;");')
+    check('panel-overview-zero-css-duration', 'Main.panel.get_theme_node().get_transition_duration()===0')
     # Observe rendered frames in both directions, including interrupted opens.
     evaluate('globalThis.panelFrames=[]; globalThis.panelFrameId=global.stage.connect("after-paint",()=>{'
              'const s=findSoft("top-panel"); panelFrames.push({fade:s._panelFade.value, '
+             'overview:Main.overview._overview.controls._stateAdjustment.value, '
              'tint:s._panelTint.get_paint_opacity(), blur:s._blur.get_paint_opacity(), '
              'group:s._group.opacity, mapped:s._blur.mapped, panel:Main.panel.opacity});}); Main.overview.show();')
     time.sleep(0.6)
@@ -57,9 +63,11 @@ def test_surfaces(evaluate, check, screenshot, results):
     results['panel-overview-entry-frames'] = evaluate('panelFrames')
     entry = results['panel-overview-entry-frames']
     assert any(0 < f['group'] < 255 for f in entry), 'Entry must animate, not jump'
+    assert all(abs(f['fade'] - (1 - min(1, max(0, f['overview'])))) < 0.001 for f in entry)
     assert all(f['tint'] == f['blur'] and f['panel'] == 255 for f in entry if f['mapped'])
     evaluate('panelFrames=[]; panelFrameId=global.stage.connect("after-paint",()=>{'
              'const s=findSoft("top-panel"); panelFrames.push({fade:s._panelFade.value, '
+             'overview:Main.overview._overview.controls._stateAdjustment.value, '
              'tint:s._panelTint.get_paint_opacity(), blur:s._blur.get_paint_opacity(), '
              'group:s._group.opacity, mapped:s._blur.mapped, panel:Main.panel.opacity});}); Main.overview.hide();')
     time.sleep(0.6)
@@ -67,6 +75,7 @@ def test_surfaces(evaluate, check, screenshot, results):
     results['panel-overview-exit-frames'] = evaluate('panelFrames')
     exit_frames = results['panel-overview-exit-frames']
     assert any(0 < f['group'] < 255 for f in exit_frames), 'Exit must animate, not jump'
+    assert all(abs(f['fade'] - (1 - min(1, max(0, f['overview'])))) < 0.001 for f in exit_frames)
     assert all(f['tint'] == f['blur'] and f['panel'] == 255 for f in exit_frames if f['mapped'])
     check('panel-overview-exit-restored', 'findSoft("top-panel")._panelFade.value===1 && alignedSoft(findSoft("top-panel"))')
     evaluate('Main.overview.show();')
@@ -74,6 +83,7 @@ def test_surfaces(evaluate, check, screenshot, results):
     evaluate('Main.overview.hide();')
     time.sleep(0.7)
     check('panel-overview-interrupted-restored', 'findSoft("top-panel")._panelFade.value===1 && alignedSoft(findSoft("top-panel"))')
+    evaluate('Main.panel.set_style(panelFadeOriginalStyle);')
     evaluate('soft._settings.set_int("opacity",100);')
     time.sleep(0.4)
     check('panel-opaque-keeps-tint-only', 'findSoft("top-panel")._group.visible && findSoft("top-panel")._panelTint.mapped && !findSoft("top-panel")._blur.mapped && findSoft("top-panel")._windows.size===0')

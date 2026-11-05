@@ -1,3 +1,19 @@
+# Validação da versão 12 — 5 de novembro de 2026
+
+GNOME Shell 51.1, sessões D-Bus/Wayland isoladas.
+
+- Reproduzido o snap com `transition-duration: 0ms`: o teste de frames
+  intermediários falhou antes da correção.
+- Após a correção, entrada e saída têm frames intermediários, com blur e tint
+  na mesma opacidade; backend opcional e `Shell.BlurEffect`: PASS.
+- Com o backend nativo, a opacidade acompanha o progresso do overview em cada
+  frame, mesmo com a duração CSS da barra em zero: PASS.
+- Interrupção, reativação no overview, opacidade automática e restante dos
+  testes de superfícies/integração: PASS. `make check`: PASS.
+
+Resultados em `validation/gnome50-surfaces-results.json` e
+`validation/gnome50-native-surfaces-panel-policy-results.json`.
+
 # Validação da versão 11
 
 GNOME Shell 51.1, sessões D-Bus/Wayland isoladas, 4 de novembro de 2026.
