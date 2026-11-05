@@ -1,3 +1,12 @@
+# GNOME Extended 13 — 5 de novembro de 2026
+
+- Corrigido o snap do blur ao sair do overview: o raio e o escurecimento do
+  efeito agora acompanham o progresso da transição junto com o fundo da barra.
+- No modo BACKGROUND, o efeito compõe com opacidade total; o fade da camada
+  implementado na versão 12 não bastava para suavizar o desfoque em si.
+- Novo teste de pixels com padrão de alto contraste verifica o desfoque em
+  múltiplas etapas e ao inverter o progresso, com os dois backends.
+
 # GNOME Extended 12 — 5 de novembro de 2026
 
 - Fade do blur e do fundo da barra superior sincronizado com o progresso do

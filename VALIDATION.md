@@ -1,3 +1,21 @@
+# Validação da versão 13 — 5 de novembro de 2026
+
+GNOME Shell 51.1, sessões D-Bus/Wayland isoladas.
+
+- Regressão reproduzida na v12 por pixels: em 10%, 35%, 70% e 100% de progresso,
+  o padrão já tinha o mesmo contraste (26,07), apesar da animação da camada.
+- Após a correção, contraste do padrão em 0%, 10%, 35%, 70% e 100%:
+  126,93; 118,04; 86,62; 39,71; 26,15. O blur aumenta gradualmente, e a inversão
+  para 35% e 0% restaura os mesmos pixels. PASS nos dois backends.
+- Comparação visual dos recortes da barra revisada em
+  `validation/panel-blur-rendered-comparison.png`.
+- Backend opcional: teste de pixels, superfícies, opacidade automática e
+  integração completa PASS. Backend nativo: teste de pixels e integração
+  completa PASS. `make check`: PASS.
+
+Resultados em `validation/gnome50-surfaces-panel-policy-panel-blur-results.json`
+e `validation/gnome50-native-panel-blur-results.json`.
+
 # Validação da versão 12 — 5 de novembro de 2026
 
 GNOME Shell 51.1, sessões D-Bus/Wayland isoladas.

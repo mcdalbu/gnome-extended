@@ -28,7 +28,7 @@ migrada para os dois switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v12.zip
+gnome-extensions install --force gnome-extended@local_v13.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua
@@ -65,6 +65,7 @@ composição dupla. Dash to Dock Extended 28 já delega esses efeitos ao GNOME E
 make check
 make zip-file
 SOFT_TEST_DOCK_FIXTURES=1 python3 tests/headless.py
+SOFT_TEST_PANEL_BLUR=1 SOFT_TEST_SURFACES=1 python3 tests/headless.py
 ```
 
 Os testes gráficos criam uma sessão D-Bus/Wayland privada, sem modificar o desktop.

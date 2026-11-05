@@ -66,7 +66,10 @@ export class SoftSurface {
                     actor: menu.actor, lower: 0, upper: 1,
                     value: panelFade(),
                 });
-                this._signals.connect(this._panelFade, 'notify::value', () => this._syncVisibility());
+                this._signals.connect(this._panelFade, 'notify::value', () => {
+                    this._updateBlurAppearance();
+                    this._syncVisibility();
+                });
                 // Follow Shell's animation (including gestures and reversals).
                 // Panel CSS durations can be zero even with animations enabled.
                 this._signals.connect(overviewAdjustment, 'notify::value', () => {
@@ -194,10 +197,21 @@ export class SoftSurface {
 
     _updateEffect() {
         applyBlurRate(this._effect, this._settings.get_int('blur-rate'));
+        this._updateBlurAppearance();
+        this._updateEffectCorners();
+    }
+
+    _updateBlurAppearance() {
+        if (!this._effect)
+            return;
+        // BACKGROUND effects composite at full opacity, independently of the
+        // actor's paint opacity. Animate the actual filter from an unchanged
+        // background to the configured blur, not just its containing actor.
+        const fade = this._panelFade?.value ?? 1;
         const scale = this._context.scale_factor;
         applyBlurParameters(this._effect, this._radiusProperty,
-            this._settings.get_int('blur-radius'), scale, this._settings.get_int('brightness'));
-        this._updateEffectCorners();
+            this._settings.get_int('blur-radius') * fade, scale,
+            100 + (this._settings.get_int('brightness') - 100) * fade);
     }
 
     _readThemeCorners() {
