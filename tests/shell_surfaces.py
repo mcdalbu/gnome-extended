@@ -41,7 +41,10 @@ def test_surfaces(evaluate, check, screenshot, results):
     check('panel-blur-aligned', 'alignedSoft(findSoft("top-panel"))')
     check('panel-square-and-sharp', 'findSoft("top-panel")._cornerRadius()===0 && Main.panel.opacity===255')
     screenshot('surfaces-panel')
-    check('panel-adwaita-dark-gray', '(() => {const c=findSoft("top-panel")._panelTint.get_theme_node().get_background_color(); return c.red===46 && c.green===46 && c.blue===50;})()')
+    evaluate('soft._settings.set_boolean("top-panel",false); '
+             'globalThis.nativePanelRGB=(()=>{const c=Main.panel.get_theme_node().get_background_color();return [c.red,c.green,c.blue];})(); '
+             'soft._settings.set_boolean("top-panel",true);')
+    check('panel-native-dark-color', '(() => {const c=findSoft("top-panel")._panelTint.get_theme_node().get_background_color(); return [c.red,c.green,c.blue].every((v,i)=>v===nativePanelRGB[i]);})()')
     # Themes may disable panel CSS transitions independently of Shell animations.
     # The backdrop must still follow the overview's rendered progress.
     evaluate('globalThis.panelFadeOriginalStyle=Main.panel.get_style(); '

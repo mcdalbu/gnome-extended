@@ -1,3 +1,10 @@
+# GNOME Extended 15 — 5 de novembro de 2026
+
+- A barra superior no tema escuro volta a usar a cor nativa do tema do GNOME.
+- Removidos o cinza Adwaita forçado e a troca para preto ao ficar opaca.
+- Preservados blur, transparência, regras por tema, opacidade automática e
+  transições do overview.
+
 # GNOME Extended 14 — 5 de novembro de 2026
 
 - A passagem do painel sólido para o desktop desfocado agora tem um crossfade

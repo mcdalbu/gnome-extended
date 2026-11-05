@@ -273,8 +273,7 @@ export class SoftSurface {
         if (!this._panelColor)
             return;
         this._panelAlpha = this._panelPolicy.opaque ? 1 : opacityFraction(this._settings.get_int('opacity'));
-        const light = St.Settings.get().color_scheme === St.SystemColorScheme.PREFER_LIGHT;
-        const [red, green, blue] = !light && this._panelAlpha === 1 ? [0, 0, 0] : this._panelColor;
+        const [red, green, blue] = this._panelColor;
         // St interpolates the complete RGBA background in one native CSS
         // transition. Keep blur until the opaque fill has finished fading in.
         const duration = this.menu.box.get_theme_node().get_transition_duration();
@@ -300,11 +299,11 @@ export class SoftSurface {
         this._readThemeCorners();
         if (this._panelTint) {
             const light = St.Settings.get().color_scheme === St.SystemColorScheme.PREFER_LIGHT;
-            // Adwaita --headerbar-bg-color (dark): #2e2e32. Preserve the
-            // native theme's color in light mode.
+            // Keep the native panel color at every opacity, including dark mode.
             if (light && color.alpha > 0)
                 this._panelLightColor = [color.red, color.green, color.blue];
-            this._panelColor = light ? (this._panelLightColor ?? [250, 250, 251]) : [46, 46, 50];
+            this._panelColor = light ? (this._panelLightColor ?? [250, 250, 251]) :
+                [color.red, color.green, color.blue];
             this._updatePanelTint();
             this._boxSuffix = 'background-color: transparent; background-image: none;';
         } else {

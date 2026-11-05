@@ -1,3 +1,14 @@
+# Validação da versão 15 — 5 de novembro de 2026
+
+Sessão GNOME Shell isolada, com backend opcional de blur.
+
+- Cor da barra comparada ao tema nativo com o efeito desativado: PASS.
+- Transparência, opacidade manual e automática, restauração da cor nativa,
+  fades por pixels e integração das superfícies: PASS.
+- Preferências e `make check`: PASS.
+- Resultados em `validation/gnome50-surfaces-panel-policy-results.json`.
+  O backend nativo não foi repetido nesta alteração da camada de cor compartilhada.
+
 # Validação da versão 14 — 5 de novembro de 2026
 
 GNOME Shell 51.1, sessões D-Bus/Wayland isoladas.

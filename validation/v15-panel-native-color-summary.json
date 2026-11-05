@@ -1,0 +1,32 @@
+{
+  "version": 15,
+  "date": "2026-11-05",
+  "passed": true,
+  "checks": {
+    "panel-native-dark-color": true,
+    "panel-color-dark-transparent-native": true,
+    "panel-color-dark-manual-opaque-native": true,
+    "panel-tint-fade-to-opaque": {
+      "start": 68.0,
+      "middle": 52.0,
+      "end": 0.0
+    },
+    "panel-color-dark-manual-transparency-restores-native": true,
+    "panel-tint-fade-to-transparent": {
+      "start": 0.0,
+      "middle": 22.0,
+      "end": 68.0
+    },
+    "panel-color-dark-maximized-native": true,
+    "panel-color-light-opaque-keeps-theme": true,
+    "panel-color-unmaximize-restores-native": true,
+    "panel-color-fullscreen-native": true,
+    "panel-color-minimize-restores-native": true,
+    "panel-color-window-close-restores-native": true,
+    "preferences": {
+      "passed": true,
+      "output": "Preferences: five pages, control placement, all bindings, reset and backend GitHub link passed"
+    }
+  },
+  "zip_sha256": "a105601d4a608a0d7923deed7ec5c6fd20bc968aa9a219c5346df1e668f4bb12"
+}

@@ -1,7 +1,7 @@
 # GNOME Extended
 
 Blur e transparência para superfícies do GNOME Shell, integração com Dash to Dock
-e forks, e sombra dos ícones da grade e dos docks. Versão estável **11**.
+e forks, e sombra dos ícones da grade e dos docks. Versão estável **15**.
 
 ## Configurações
 
@@ -28,7 +28,7 @@ migrada para os dois switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v14.zip
+gnome-extensions install --force gnome-extended@local_v15.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua
@@ -73,3 +73,8 @@ Exigem GNOME Shell 50/51, GJS e PyGObject. Metadados permitem GNOME 45–51;
 a validação desta release foi feita no GNOME Shell 51.1.
 
 Veja [RELEASE_NOTES.md](RELEASE_NOTES.md) e [VALIDATION.md](VALIDATION.md).
+
+
+A barra superior no tema escuro mantém a cor definida pelo tema do GNOME,
+tanto transparente quanto opaca. O cinza Adwaita e a troca de cor ao ficar
+opaca foram removidos; a transparência, o blur e suas transições continuam ativos.
