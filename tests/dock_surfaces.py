@@ -3,6 +3,8 @@ import time
 
 
 def test_docks(evaluate, check, results):
+    check('dock-overview-default-enabled', 'soft._settings.get_boolean("dock-transparent-in-overview")')
+    evaluate('soft._settings.set_boolean("dock-transparent-in-overview", false);')
     evaluate('''(() => {
         const St = imports.gi.St;
         globalThis.fixtureDocks = [];
@@ -11,7 +13,7 @@ def test_docks(evaluate, check, results):
                 style_class:i === 1 ? 'dash-to-dock' : '', x:60+i*500, y:800, width:420, height:70});
             Main.uiGroup.add_child(root);
             const box = new St.Widget({style_class:'dash-background', width:420, height:70,
-                style:'background-color: rgb(45,45,45); border-radius: 18px;'});
+                style:'background-color: rgb(45,45,45); border-radius: 18px; border: 2px solid red; box-shadow: 0 2px 6px 2px black;'});
             root.add_child(box);
             const icons = new St.BoxLayout({style_class:'overview-icon'});
             icons.add_child(new St.Icon({icon_name:'folder-symbolic'}));
@@ -19,7 +21,7 @@ def test_docks(evaluate, check, results):
             fixtureDocks.push({root, box, icon:icons.get_first_child(), original:box.get_style()});
         }
     })()''')
-    time.sleep(0.5)
+    time.sleep(0.8)
     check('generic-dock-discovery', 'fixtureDocks.every(d => soft._docks._records.get(d.root)?.surface?._blur.mapped)')
     check('dock-shared-opacity', 'fixtureDocks.every(d => Math.abs(d.box.get_theme_node().get_background_color().alpha - 140) <= 1)')
     check('dock-marker', 'fixtureDocks.every(d => d.root.has_style_class_name("gnome-extended-dock"))')
@@ -53,10 +55,64 @@ def test_docks(evaluate, check, results):
     evaluate('soft._settings.set_boolean("docks", true);')
     time.sleep(0.2)
     check('dock-toggle-on', 'fixtureDocks.every(d => soft._docks._records.get(d.root).surface._blur.mapped)')
+    evaluate('Main.overview.show();')
+    time.sleep(0.8)
+    check('dock-overview-opt-out-unchanged', 'fixtureDocks.every(d => soft._docks._records.get(d.root).surface._blur.mapped && d.box.get_theme_node().get_background_color().alpha > 0)')
+    evaluate('''globalThis.dockFadeSamples = [];
+        globalThis.dockFadeId = global.stage.connect('before-paint', () => {
+            const s = soft._docks._records.get(fixtureDocks[0].root).surface;
+            dockFadeSamples.push({opacity: fixtureDocks[0].box.opacity,
+                radius: s._effect[s._radiusProperty], brightness: s._effect.brightness,
+                icon: fixtureDocks[0].icon.get_paint_opacity()});
+        }); soft._settings.set_boolean("dock-transparent-in-overview", true);''')
+    time.sleep(0.4)
+    evaluate('global.stage.disconnect(dockFadeId);')
+    check('dock-fade-out-intermediate', 'dockFadeSamples.some(s => s.opacity > 0 && s.opacity < 255 && s.radius > 0 && s.brightness > 0.85 && s.brightness < 1) && dockFadeSamples.every(s => s.icon === 255)')
+    results['dock-fade-out-frames'] = evaluate('dockFadeSamples')
+    check('dock-overview-transparent', '''fixtureDocks.every(d => {
+        return d.box.get_paint_opacity() === 0 && d.icon.get_paint_opacity() === 255 &&
+            !soft._docks._records.get(d.root).surface._group.visible;
+    })''')
+    evaluate('soft._settings.set_int("opacity", 100);')
+    check('dock-overview-overrides-opaque', 'fixtureDocks.every(d => d.box.get_paint_opacity() === 0 && !soft._docks._records.get(d.root).surface._blur.mapped)')
+    evaluate('soft._settings.set_boolean("dock-transparent-in-overview", false);')
+    time.sleep(0.4)
+    check('dock-overview-toggle-restores-border', 'fixtureDocks.every(d => d.box.get_theme_node().get_background_color().alpha === 255 && d.box.get_theme_node().get_border_color(0).alpha === 255 && !!d.box.get_theme_node().get_shadow("box-shadow"))')
+    evaluate('soft._settings.set_int("opacity", 55); soft._settings.set_boolean("dock-transparent-in-overview", true);')
+    time.sleep(0.35)
+    evaluate('''globalThis.dockFadeSamples = [];
+        globalThis.dockFadeId = global.stage.connect('before-paint', () => {
+            const s = soft._docks._records.get(fixtureDocks[0].root).surface;
+            dockFadeSamples.push({opacity: fixtureDocks[0].box.opacity,
+                radius: s._effect[s._radiusProperty], icon: fixtureDocks[0].icon.get_paint_opacity()});
+        }); Main.overview.hide();''')
+    time.sleep(0.8)
+    evaluate('global.stage.disconnect(dockFadeId);')
+    check('dock-fade-in-intermediate', 'dockFadeSamples.some(s => s.opacity > 0 && s.opacity < 255 && s.radius > 0) && dockFadeSamples.every(s => s.icon === 255)')
+    results['dock-fade-in-frames'] = evaluate('dockFadeSamples')
+    check('dock-overview-close-restores', 'fixtureDocks.every(d => soft._docks._records.get(d.root).surface._blur.mapped && Math.abs(d.box.get_theme_node().get_background_color().alpha - 140) <= 1 && d.box.get_theme_node().get_border_color(0).alpha === 255)')
+    evaluate('soft._settings.set_boolean("docks", false); Main.overview.show();')
+    time.sleep(0.8)
+    check('dock-overview-without-normal-blur', 'fixtureDocks.every(d => d.box.get_paint_opacity() === 0 && !soft._docks._records.get(d.root).surface._group.visible)')
+    evaluate('Main.overview.hide();')
+    time.sleep(0.8)
+    check('dock-overview-restores-original-without-blur', 'fixtureDocks.every(d => d.box.opacity === 255 && !soft._docks._records.get(d.root).surface._group.visible && d.box.get_style() === d.original)')
+    evaluate('soft._settings.set_boolean("docks", true); Main.overview.show();')
+    time.sleep(0.8)
+    evaluate('soft._docks.destroy();')
+    check('dock-overview-disable-cleans-up', 'fixtureDocks.every(d => d.box.get_style() === d.original && !d.root.has_style_class_name("gnome-extended-dock"))')
+    evaluate('''(async () => {
+        const {DockSurfaces} = await import(soft.dir.get_uri() + '/dockSurfaces.js');
+        soft._docks = new DockSurfaces(soft._settings); soft._docks.start();
+    })()''')
+    time.sleep(0.3)
+    check('dock-overview-reenable-transparent', 'fixtureDocks.every(d => d.box.get_paint_opacity() === 0 && !soft._docks._records.get(d.root).surface._group.visible)')
+    evaluate('Main.overview.hide(); soft._settings.set_boolean("dock-transparent-in-overview", false);')
+    time.sleep(0.8)
     evaluate('fixtureDocks[1].box.destroy();')
     time.sleep(0.2)
     check('dock-background-destroyed', '!soft._docks._records.get(fixtureDocks[1].root).surface')
-    evaluate('fixtureDocks.forEach(d => d.root.destroy()); soft._settings.set_int("blur-rate", 0);')
+    evaluate('fixtureDocks.forEach(d => d.root.destroy()); soft._settings.set_int("blur-rate", 0); soft._settings.reset("dock-transparent-in-overview");')
     time.sleep(0.1)
     check('dock-fixture-cleanup', 'soft._docks._records.size === 0')
     results['generic-dock-contract'] = 'Upstream name, fork marker and anonymous structural match; no dock code imports'

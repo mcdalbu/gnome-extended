@@ -52,6 +52,27 @@ export class SoftSurface {
                 style: 'background-color: transparent;',
             });
             this._group.add_child(this._blur);
+            if (options.dock) {
+                // dash-background is separate from the dock's icon container.
+                // Fade its complete theme paint, including images and shadows.
+                this._originalBoxOpacity = menu.box.opacity;
+                this._dockFade = new St.Adjustment({
+                    actor: menu.box, lower: 0, upper: 1,
+                    value: options.transparent() ? 0 : 1,
+                });
+                this._signals.connect(this._dockFade, 'notify::value', () => {
+                    this._applyDockFade();
+                    this._updateBlurAppearance();
+                    this._syncVisibility();
+                });
+                this._signals.connect(menu.box, 'notify::opacity', () => {
+                    if (menu.box.opacity === this._appliedBoxOpacity)
+                        return;
+                    this._originalBoxOpacity = menu.box.opacity;
+                    this._applyDockFade();
+                });
+                this._applyDockFade();
+            }
             if (options.panel) {
                 // The overview's solid backdrop disappears only after its
                 // animation ends. Crossfade that last input into the live
@@ -226,7 +247,7 @@ export class SoftSurface {
         // BACKGROUND effects composite at full opacity, independently of the
         // actor's paint opacity. Animate the actual filter from an unchanged
         // background to the configured blur, not just its containing actor.
-        const fade = this._panelFade?.value ?? 1;
+        const fade = this._panelFade?.value ?? this._dockFade?.value ?? 1;
         const scale = this._context.scale_factor;
         applyBlurParameters(this._effect, this._radiusProperty,
             this._settings.get_int('blur-radius') * fade, scale,
@@ -285,8 +306,27 @@ export class SoftSurface {
         }
     }
 
+    _applyDockFade() {
+        this._appliedBoxOpacity = Math.round(this._originalBoxOpacity * this._dockFade.value);
+        this.menu.box.opacity = this._appliedBoxOpacity;
+    }
+
+    _updateDockFade() {
+        if (!this._dockFade)
+            return;
+        const target = this._options.transparent() ? 0 : 1;
+        if (this._dockFadeTarget === target)
+            return;
+        this._dockFadeTarget = target;
+        this._dockFade.remove_transition('value');
+        this._dockFade.ease(target, {duration: ANIMATION_TIME,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => this._options.onFadeComplete?.()});
+    }
+
     update() {
         this._panelPolicy?.sync();
+        this._updateDockFade();
         // Read the actual theme color before adding our own alpha. Never change
         // the opacity of the content actor: labels and icons must stay sharp.
         const {box, actor} = this.menu;
@@ -297,7 +337,9 @@ export class SoftSurface {
         const color = box.get_theme_node().get_background_color();
         const alpha = opacityFraction(this._settings.get_int('opacity'));
         this._readThemeCorners();
-        if (this._panelTint) {
+        if (this._options.dock && !this._options.blurEnabled()) {
+            this._boxSuffix = '';
+        } else if (this._panelTint) {
             const light = St.Settings.get().color_scheme === St.SystemColorScheme.PREFER_LIGHT;
             // Keep the native panel color at every opacity, including dark mode.
             if (light && color.alpha > 0)
@@ -310,7 +352,8 @@ export class SoftSurface {
             this._boxSuffix = 'background-color: ' +
                 `rgba(${color.red}, ${color.green}, ${color.blue}, ${alpha}); background-image: none;`;
         }
-        this._appliedBoxStyle = appendStyle(this._originalBoxStyle, this._boxSuffix);
+        this._appliedBoxStyle = this._boxSuffix
+            ? appendStyle(this._originalBoxStyle, this._boxSuffix) : this._originalBoxStyle;
         box.set_style(this._appliedBoxStyle);
         // Older themes draw a second opaque surface in BoxPointer's Cairo
         // border. Suppress just its fill; keep layout, border and input intact.
@@ -340,13 +383,14 @@ export class SoftSurface {
 
     _syncVisibility() {
         const active = this.menu.isOpen && this.menu.actor.mapped && !this._sleeping &&
-            !Main.sessionMode.isLocked && !Main.screenShield?.active;
+            !Main.sessionMode.isLocked && !Main.screenShield?.active &&
+            (this._options.blurEnabled?.() ?? true);
         const alpha = this._panelTint ? this._panelAlpha : opacityFraction(this._settings.get_int('opacity'));
-        const opaque = active && alpha === 1 &&
+        const opaque = active && alpha === 1 && (this._dockFade?.value ?? 1) === 1 &&
             this.menu.box.get_paint_opacity() === 255 &&
             (this._hasCorners || this._cornerRadius() === 0) &&
             GLib.get_monotonic_time() >= this._opaqueUntil;
-        const fade = this._panelFade?.value ?? 1;
+        const fade = this._panelFade?.value ?? this._dockFade?.value ?? 1;
         const visible = active && fade > 0 && (!!this._panelTint || !opaque);
         const blurVisible = visible && !opaque;
         const wasVisible = this._group.visible && this._blur.visible;
@@ -383,7 +427,8 @@ export class SoftSurface {
         const parentOpacity = this._group.get_parent().get_paint_opacity();
         const opacityActor = this._options.plain ? this.menu.box : this.menu.actor;
         this._group.opacity = parentOpacity > 0
-            ? Math.min(255, Math.round(255 * fade * opacityActor.get_paint_opacity() / parentOpacity)) : 0;
+            ? Math.min(255, Math.round(255 * (this._dockFade ? 1 : fade) *
+                opacityActor.get_paint_opacity() / parentOpacity)) : 0;
     }
 
     _syncGeometry(syncVisibility = true) {
@@ -562,6 +607,8 @@ export class SoftSurface {
         this._panelReveal?.remove_transition('value');
         this._panelReveal = null;
         this._panelFade = null;
+        this._dockFade?.remove_transition('value');
+        this._dockFade = null;
         this._frames.clear();
         this._signals.clear();
         for (const signals of this._children.values())
@@ -582,6 +629,8 @@ export class SoftSurface {
         this._effect = null;
         if (!menuDestroyed) {
             this.menu.box.set_style(this._originalBoxStyle);
+            if (this._options.dock)
+                this.menu.box.opacity = this._originalBoxOpacity;
             if (!this._options.plain)
                 this.menu.actor.set_style(this._originalMenuStyle);
         }

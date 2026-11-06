@@ -1,3 +1,21 @@
+# GNOME Extended 17 — 6 de novembro de 2026
+
+- Fade in/out de 250 ms ao alternar a transparência do dock no overview,
+  usando a mesma duração e curva de animação da barra superior.
+- Fundo, contorno, imagem e sombra do fundo desaparecem juntos; raio e brilho
+  do blur também são interpolados. Os ícones mantêm a opacidade.
+- Preserva a aparência original quando o blur normal está desativado,
+  incluindo a restauração da opacidade ao desativar a extensão.
+
+# GNOME Extended 16 — 6 de novembro de 2026
+
+- Nova opção na aba Dock: **Fundo 100% transparente no overview**.
+- Remove fundo, imagem de fundo, contorno, sombra do fundo e blur enquanto
+  a visão geral estiver aberta, incluindo a grade e a pesquisa.
+- Preserva ícones e dimensões do dock; restaura o visual anterior ao fechar.
+- Ativada por padrão, com switch para desativar na aba Dock, independente
+  do blur normal do dock.
+
 # GNOME Extended 15 — 5 de novembro de 2026
 
 - A barra superior no tema escuro volta a usar a cor nativa do tema do GNOME.

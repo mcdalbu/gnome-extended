@@ -1,7 +1,7 @@
 # GNOME Extended
 
 Blur e transparência para superfícies do GNOME Shell, integração com Dash to Dock
-e forks, e sombra dos ícones da grade e dos docks. Versão estável **15**.
+e forks, e sombra dos ícones da grade e dos docks. Versão estável **17**.
 
 ## Configurações
 
@@ -10,7 +10,12 @@ As preferências estão organizadas em cinco abas:
 - **Elementos:** notificações/calendário, configurações rápidas, diálogos,
   banners, pastas, alternadores, indicadores de volume/brilho, captura de tela,
   menus, overview e tela de bloqueio.
-- **Dock:** ativação de blur e transparência nos docks compatíveis detectados.
+- **Dock:** ativação de blur e transparência nos docks compatíveis detectados,
+  com opção **Fundo 100% transparente no overview**. Remove fundo, contorno,
+  sombra do fundo e blur enquanto a visão geral estiver aberta e restaura a
+  aparência anterior ao fechar, com fade in/out de 250 ms como na barra superior.
+  Funciona também com o blur normal desativado;
+  vem ligada por padrão e pode ser desativada na aba Dock.
 - **Barra superior:** ativação, escolhas por tema e opacidade automática com
   janelas maximizadas ou em tela cheia no monitor da barra.
 - **Blur:** intensidade, opacidade, brilho e frequência compartilhados, com link
@@ -28,7 +33,7 @@ migrada para os dois switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v15.zip
+gnome-extensions install --force gnome-extended@local_v17.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua

@@ -62,6 +62,7 @@ export class DockSurfaces {
         this._signals.connect(Main.uiGroup, added, () => this._queueScan());
         this._signals.connect(Main.extensionManager, 'extension-state-changed', () => this._queueScan());
         this._signals.connect(Main.layoutManager, 'monitors-changed', () => this._queueScan());
+        this._signals.connect(Main.layoutManager.overviewGroup, 'notify::visible', () => this.sync());
         this._scan();
     }
 
@@ -110,9 +111,16 @@ export class DockSurfaces {
         actor.add_style_class_name('gnome-extended-dock');
     }
 
+    _isOverviewTransparent() {
+        return this._settings.get_boolean('dock-transparent-in-overview') &&
+            Main.layoutManager.overviewGroup.visible;
+    }
+
     _refresh(record) {
         const box = findBackground(record.actor);
-        const enabled = this._settings.get_boolean('docks');
+        const enabled = this._settings.get_boolean('docks') ||
+            this._settings.get_boolean('dock-transparent-in-overview') ||
+            (record.surface?._dockFade?.value ?? 1) < 1;
         if (record.surface && (!enabled || box !== record.box)) {
             record.surface.destroy();
             record.surface = null;
@@ -136,7 +144,10 @@ export class DockSurfaces {
             record.surface = new SoftSurface(menu, this._settings, 'dock', () => {
                 record.surface = null;
                 this._queueScan();
-            }, {plain: true, anchor: record.actor});
+            }, {plain: true, dock: true, anchor: record.actor,
+                blurEnabled: () => this._settings.get_boolean('docks'),
+                onFadeComplete: () => this._queueScan(),
+                transparent: () => this._isOverviewTransparent()});
         }
     }
 

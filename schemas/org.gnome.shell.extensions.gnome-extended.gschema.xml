@@ -94,5 +94,10 @@
       <default>true</default>
       <summary>Blur em Dash to Dock e forks compatíveis</summary>
     </key>
+    <key name="dock-transparent-in-overview" type="b">
+      <default>true</default>
+      <summary>Fundo do dock totalmente transparente no overview</summary>
+      <description>Remove fundo, contorno, sombra do fundo e blur dos docks compatíveis enquanto o overview estiver aberto, preservando os ícones. Ao fechar, restaura a aparência anterior, mesmo com o blur do dock desativado.</description>
+    </key>
   </schema>
 </schemalist>

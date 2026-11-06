@@ -58,6 +58,8 @@ export default class GnomeExtendedPreferences extends ExtensionPreferences {
             'Aplicação independente do dock instalado, para estruturas compatíveis.');
         toggle(dock, settings, 'docks', 'Blur e transparência no dock',
             'Acompanha os movimentos, a posição e a visibilidade de cada dock.');
+        toggle(dock, settings, 'dock-transparent-in-overview', 'Fundo 100% transparente no overview',
+            'Remove fundo, contorno, sombra do fundo e blur enquanto a visão geral estiver aberta. Ao fechar, restaura a aparência anterior.');
         dock.add(new Adw.ActionRow({title: 'Aparência compartilhada',
             subtitle: 'Ajuste intensidade, opacidade, brilho e frequência na aba Blur. A sombra dos ícones fica na aba Ícones.'}));
 

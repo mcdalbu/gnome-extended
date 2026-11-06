@@ -1,3 +1,35 @@
+# Validação da versão 17 — 6 de novembro de 2026
+
+Sessões GNOME Shell D-Bus/Wayland isoladas, backend opcional e nativo.
+
+- Fade out apresenta opacidades intermediárias 255, 223, 192, 163, 138,
+  114, 92, 73, 56, 41, 29, 18, 10, 5, 1, 0; fade in também apresenta
+  frames intermediários. Ícones permanecem com opacidade 255: PASS.
+- Raio e brilho do efeito interpolados junto com o fundo: PASS.
+- Duração usa ANIMATION_TIME e EASE_OUT_QUAD, como o fade da barra superior.
+- Default ativado, opt out, restauração, opacidade de 100%, blur normal
+  desativado, desmontagem, reativação, preferências e integração: PASS.
+- `make check` e integridade do ZIP: PASS.
+
+Resultados em `validation/dock-fade-optional-results.json` e
+`validation/dock-fade-native-results.json`.
+
+# Validação da versão 16 — 6 de novembro de 2026
+
+Sessões GNOME Shell D-Bus/Wayland isoladas, com três contratos de dock.
+
+- Fundo, contorno e sombra do fundo invisíveis no overview, ícones com
+  opacidade integral e camada de blur oculta: PASS.
+- Restauração ao sair do overview, toggle com overview aberto, opacidade
+  compartilhada de 100% e funcionamento sem blur normal do dock: PASS.
+- Desativação e reativação do controlador com overview aberto: PASS.
+- Backend opcional e fallback nativo, integração completa e preferências: PASS.
+- Default ativado e opt out verificados com fallback nativo; schema estrito,
+  bindings e reset preservam o default ativado. `make check`: PASS.
+
+Resultados em `validation/gnome50-results.json` e
+`validation/gnome50-native-results.json`.
+
 # Validação da versão 15 — 5 de novembro de 2026
 
 Sessão GNOME Shell isolada, com backend opcional de blur.

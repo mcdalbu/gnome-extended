@@ -60,7 +60,8 @@ for (const [source, key] of [
     }
 }
 function pageOf(widget) { return widget.get_ancestor(Adw.PreferencesPage)?.name; }
-assert(pageOf(controls.get('docks')) === 'dock', 'Dock owns dock options');
+for (const key of ['docks', 'dock-transparent-in-overview'])
+    assert(pageOf(controls.get(key)) === 'dock', `Dock owns ${key}`);
 for (const key of ['top-panel', 'panel-enabled-dark', 'panel-enabled-light', 'panel-opaque-dark', 'panel-opaque-light'])
     assert(pageOf(controls.get(key)) === 'panel', `Panel owns ${key}`);
 for (const key of ['blur-radius', 'opacity', 'brightness', 'blur-rate'])
