@@ -34,7 +34,7 @@ migrada para os três switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v18.zip
+gnome-extensions install --force gnome-extended@local_v19.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua
@@ -49,13 +49,15 @@ gnome-extensions prefs gnome-extended@local
 O projeto de origem é [GNOME Rounded Blur](https://github.com/kancko/gnome-rounded-blur).
 Sem biblioteca compatível, a extensão usa `Shell.BlurEffect` na frequência integral.
 Half-rate e quarter-rate exigem um backend que exponha a propriedade `frame-divisor`,
-como o pacote local `1.0.2-3.beta2.local`. Esse recurso não é presumido em qualquer
+como o pacote local `1.0.2-4.local`. Esse recurso não é presumido em qualquer
 build do projeto de origem. O RPM opcional é específico para Fedora 45 x86_64 /
 Mutter 51; o SRPM correspondente acompanha o binário na release.
 
 O monitor e os controles continuam na frequência normal: só a captura/desfoque
-é limitada. Mudanças de parâmetros/geometria e reabertura invalidam o cache.
-A proteção de redraw completo por view é mantida para evitar captura parcial.
+é limitada. Mudanças no raio do blur/geometria e reabertura invalidam o cache.
+Brilho e arredondamento reutilizam a textura; uma captura final atualiza cenas
+que param durante o intervalo de half-rate ou quarter-rate.
+A proteção de redraw completo por view é mantida com raio positivo para evitar captura parcial.
 
 ## Docks
 

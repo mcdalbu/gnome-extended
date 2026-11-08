@@ -193,7 +193,12 @@ export class SoftSurface {
                     this._stackPending = false;
                 }
                 this._syncGeometry(false);
-                this._guard.begin(this._blur, view);
+                // A zero-radius effect paints only the actor, without sampling
+                // the framebuffer. Keep partial redraws during that phase.
+                if (this._effect[this._radiusProperty] > 0)
+                    this._guard.begin(this._blur, view);
+                else
+                    this._guard.end();
                 if (this._blur.mapped && GLib.get_monotonic_time() < this._styleUntil)
                     this._effect.queue_repaint();
             });

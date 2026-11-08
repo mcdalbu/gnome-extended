@@ -1,3 +1,13 @@
+# Validação da versão 19 — 8 de novembro de 2026
+
+- Compilação do backend e typelib com Mutter 51.1: PASS.
+- `make check` e três testes Node do dock (sombras, redraw, autohide): PASS.
+- Sessões Wayland/D-Bus isoladas, backend modificado e fallback nativo: PASS.
+- Reutilização de cache para brilho/cantos, invalidação por raio, captura final,
+  ociosidade e múltiplos efeitos com frequências diferentes: PASS.
+- Cadência de captura aproximadamente 60/30/15 Hz; sem comparação antes/depois.
+- Detalhes em BLUR_REVIEW.md e regressões em tests/blur_cache.py.
+
 # Validação da versão 18 — 8 de novembro de 2026
 
 - `make check`: schema estrito, pacote, sinais e migração das sombras: PASS.

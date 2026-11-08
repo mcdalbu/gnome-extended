@@ -273,6 +273,9 @@ def test():
         if os.environ.get('SOFT_TEST_BLUR_RATE'):
             from blur_rate import test_blur_rate
             test_blur_rate(evaluate, check, results, shell.pid)
+        if os.environ.get('SOFT_TEST_BLUR_CACHE'):
+            from blur_cache import test_blur_cache
+            test_blur_cache(evaluate, check, results)
         evaluate('soft._settings.set_int("opacity", 35); soft._settings.set_int("blur-radius", 47); '
                  'soft._settings.set_int("brightness", 75);')
         time.sleep(0.3)

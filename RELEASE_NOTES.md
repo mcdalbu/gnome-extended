@@ -1,3 +1,13 @@
+# GNOME Extended 19 — 8 de novembro de 2026
+
+- Preserva redraw parcial quando o raio efetivo do blur é zero.
+- Backend opcional 1.0.2-4.local: captura final após atualizações descartadas em
+  half-rate/quarter-rate, sem manter repaint contínuo em cenas paradas.
+- Brilho e arredondamento reutilizam a textura do blur; troca de ator limpa
+  o cache e cancela a atualização pendente.
+- Integração validada com backend opcional e nativo, incluindo dois efeitos
+  simultâneos em frequências diferentes. O RPM atualizado exige nova sessão.
+
 # GNOME Extended 18 — 8 de novembro de 2026
 
 - Nova opção **No alternador de aplicativos (Alt+Tab)** em **Ícones → Sombra dos ícones**.
