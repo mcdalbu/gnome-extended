@@ -1,3 +1,14 @@
+# Validação da versão 18 — 8 de novembro de 2026
+
+- `make check`: schema estrito, pacote, sinais e migração das sombras: PASS.
+- Sessão GNOME Shell 51.1 D-Bus/Wayland isolada: sombras nos ícones reais de
+  `AppSwitcherPopup` e `WindowSwitcherPopup`, ativação, desativação e
+  independência da grade e do dock: PASS.
+- Integração das superfícies, desmontagem, reativação e preferências
+  (bindings, posição dos controles e restauração dos padrões): PASS.
+
+Resultados em `validation/gnome50-surfaces-results.json`.
+
 # Validação da versão 17 — 6 de novembro de 2026
 
 Sessões GNOME Shell D-Bus/Wayland isoladas, backend opcional e nativo.

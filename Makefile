@@ -1,5 +1,5 @@
 UUID = gnome-extended@local
-VERSION = 17
+VERSION = 18
 ZIP = $(UUID)_v$(VERSION).zip
 SOURCES = metadata.json extension.js appGrid.js shadowSettings.js dockSurfaces.js softSurface.js shellSurfaces.js shellBackgrounds.js panelOpacity.js signals.js frameSignals.js blurBackend.js blurRedrawGuard.js prefs.js COPYING README.md RELEASE_NOTES.md VALIDATION.md
 

@@ -104,9 +104,10 @@ export default class GnomeExtendedPreferences extends ExtensionPreferences {
         backend.add(backendRow);
 
         const iconsPage = page('icons', 'Ícones', 'preferences-desktop-appearance-symbolic');
-        const shadow = group(iconsPage, 'Sombra dos ícones', 'Parâmetros compartilhados pela grade, pastas e docks detectados.');
+        const shadow = group(iconsPage, 'Sombra dos ícones', 'Parâmetros compartilhados pela grade, pastas, docks detectados e alternador de aplicativos.');
         toggle(shadow, icons, 'icon-shadow-grid-enabled', 'Na grade de aplicativos', 'Inclui as pastas de aplicativos.');
         toggle(shadow, icons, 'icon-shadow-dock-enabled', 'No dock', 'Dash to Dock e forks compatíveis detectados.');
+        toggle(shadow, icons, 'icon-shadow-switcher-enabled', 'No alternador de aplicativos (Alt+Tab)', 'Aplica sombra aos ícones dos aplicativos no alternador.');
         for (const args of [
             ['icon-shadow-intensity', 'Opacidade da sombra (%)', '', 0, 100],
             ['icon-shadow-offset-x', 'Deslocamento horizontal (px)', '', -32, 32],

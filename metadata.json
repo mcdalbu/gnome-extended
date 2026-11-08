@@ -2,7 +2,7 @@
   "uuid": "gnome-extended@local",
   "name": "Gnome Extended",
   "url": "https://github.com/mcdalbu/gnome-extended",
-  "description": "Blur dinâmico em menus, diálogos, notificações, pastas, barra, alternadores, volume/brilho, captura, overview e tela de bloqueio, com controles independentes. Inclui sombras da grade de aplicativos.",
+  "description": "Blur dinâmico em menus, diálogos, notificações, pastas, barra, alternadores, volume/brilho, captura, overview e tela de bloqueio, com controles independentes. Inclui sombras dos ícones da grade, dos docks e do Alt+Tab.",
   "shell-version": [
     "45",
     "46",
@@ -12,9 +12,9 @@
     "50",
     "51"
   ],
-  "version": 17,
+  "version": 18,
   "settings-schema": "org.gnome.shell.extensions.gnome-extended",
-  "version-name": "17",
+  "version-name": "18",
   "session-modes": [
     "user",
     "unlock-dialog"

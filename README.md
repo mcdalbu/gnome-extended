@@ -1,7 +1,7 @@
 # GNOME Extended
 
 Blur e transparência para superfícies do GNOME Shell, integração com Dash to Dock
-e forks, e sombra dos ícones da grade e dos docks. Versão estável **17**.
+e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão estável **18**.
 
 ## Configurações
 
@@ -21,19 +21,20 @@ As preferências estão organizadas em cinco abas:
 - **Blur:** intensidade, opacidade, brilho e frequência compartilhados, com link
   para o projeto do backend. Opacidade de 100% cobre o blur com fundo opaco.
 - **Ícones:** switches independentes para **grade de aplicativos/pastas** e
-  **dock**; intensidade, deslocamentos e desfoque da sombra são compartilhados.
+  **dock** e **alternador de aplicativos (Alt+Tab)**; intensidade, deslocamentos
+  e desfoque da sombra são compartilhados.
 
 As preferências do App Grid Extended foram integradas. Seu schema e caminho
 original permanecem para conservar os valores existentes. Desative o App Grid
 independente para evitar duplicação. A preferência global antiga de sombra é
-migrada para os dois switches sem sobrescrever escolhas novas.
+migrada para os três switches sem sobrescrever escolhas novas.
 
 ## Instalação
 
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v17.zip
+gnome-extensions install --force gnome-extended@local_v18.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua

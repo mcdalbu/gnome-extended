@@ -24,4 +24,4 @@ print('Package identity, schema ranges and required files: OK')
 
 grid = ET.parse(root / "schemas/org.gnome.shell.extensions.app-grid-extended.gschema.xml").getroot()[0]
 assert grid.attrib["path"] == "/org/gnome/shell/extensions/app-grid-soft/"
-assert len(grid.findall("key")) == 7
+assert len(grid.findall("key")) == 8

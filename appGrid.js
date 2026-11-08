@@ -40,10 +40,12 @@ export class AppGrid {
             `${settings.get_int('icon-shadow-intensity') / 100});`;
         const grid = settings.get_boolean('icon-shadow-grid-enabled') ? shadow : 'icon-shadow: none;';
         const dock = settings.get_boolean('icon-shadow-dock-enabled') ? shadow : 'icon-shadow: none;';
+        const switcher = settings.get_boolean('icon-shadow-switcher-enabled') ? shadow : 'icon-shadow: none;';
         const css = `.apps-scroll-view .overview-icon StIcon {${grid}}` +
             '#dashtodockContainer.gnome-extended-dock.gnome-extended-dock .overview-icon StIcon, ' +
             '.gnome-extended-dock.gnome-extended-dock.gnome-extended-dock.gnome-extended-dock .overview-icon StIcon ' +
-            `{${dock}}`;
+            `{${dock}}` +
+            `.switcher-list .alt-tab-app StIcon {${switcher}}`;
         const theme = this._context.get_theme();
         if (this._theme === theme && this._css === css)
             return;

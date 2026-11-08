@@ -175,6 +175,27 @@ def test_surfaces(evaluate, check, screenshot, results):
             time.sleep(0.3)
             check(f'{class_name}-discovered-and-aligned', 'alignedSoft(findSoft("window-switcher"))')
             check(f'{class_name}-sharp-content', 'testSwitcher._switcherList.opacity===255')
+            evaluate('''globalThis.switcherAppIcons = [];
+                (() => {
+                    const visit = actor => {
+                        if (actor instanceof imports.gi.St.Icon)
+                            switcherAppIcons.push(actor);
+                        actor.get_children().forEach(visit);
+                    };
+                    visit(testSwitcher._switcherList);
+                })();''')
+            check(f'{class_name}-has-app-icons', 'switcherAppIcons.length > 0')
+            for enabled in [False, True]:
+                evaluate(f'soft._appGrid._settings.set_boolean("icon-shadow-switcher-enabled", {str(enabled).lower()});')
+                check(f'{class_name}-icon-shadows-{enabled}',
+                      'switcherAppIcons.every(icon => '
+                      f'!!icon.get_theme_node().get_shadow("icon-shadow") === {str(enabled).lower()})')
+            evaluate('soft._appGrid._settings.set_boolean("icon-shadow-grid-enabled", false); '
+                     'soft._appGrid._settings.set_boolean("icon-shadow-dock-enabled", false);')
+            check(f'{class_name}-icon-shadows-independent',
+                  'switcherAppIcons.every(icon => !!icon.get_theme_node().get_shadow("icon-shadow"))')
+            evaluate('soft._appGrid._settings.reset("icon-shadow-grid-enabled"); '
+                     'soft._appGrid._settings.reset("icon-shadow-dock-enabled");')
             screenshot(f'surfaces-{class_name}')
             toggle('window-switcher')
             evaluate('testSwitcher.fadeAndDestroy();')

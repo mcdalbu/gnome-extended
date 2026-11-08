@@ -34,5 +34,9 @@
       <default>true</default>
       <summary>Sombra dos ícones nos docks detectados</summary>
     </key>
+    <key name="icon-shadow-switcher-enabled" type="b">
+      <default>true</default>
+      <summary>Sombra dos ícones no alternador de aplicativos (Alt+Tab)</summary>
+    </key>
   </schema>
 </schemalist>

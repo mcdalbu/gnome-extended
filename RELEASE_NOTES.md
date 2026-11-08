@@ -1,3 +1,12 @@
+# GNOME Extended 18 — 8 de novembro de 2026
+
+- Nova opção **No alternador de aplicativos (Alt+Tab)** em **Ícones → Sombra dos ícones**.
+- Controle independente da grade e do dock, com opacidade, deslocamentos e
+  desfoque compartilhados. Aplica-se aos ícones dos alternadores de aplicativos
+  e de janelas, preservando os rótulos e as miniaturas.
+- Ativada por padrão; respeita a preferência global antiga ao migrar e
+  preserva as escolhas independentes já definidas.
+
 # GNOME Extended 17 — 6 de novembro de 2026
 
 - Fade in/out de 250 ms ao alternar a transparência do dock no overview,
