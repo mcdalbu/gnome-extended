@@ -1,3 +1,45 @@
+# Validação da versão 22 — 8 de novembro de 2026
+
+- `make check`: schemas, pacote, sinais, estilos GTK e migração: PASS.
+- Nautilus 51.1 real em GNOME Shell 51.1, backend opcional e fallback nativo, temas escuro e claro: PASS.
+- Pixels de referência dos quatro cantos da janela e dos menus comparados com blur desligado: diferença zero nos dois backends.
+- Lateral transparente continua revelando a cena; a região de arquivos permanece opaca: PASS.
+- Intensidade 42 e brilho 70% nos efeitos de janelas/menus, lidos das chaves gerais: PASS.
+- Alterar opacidade geral de 45% para 72% atualiza os três fundos GTK (lateral, lateral sem foco e menu): PASS.
+- Preferências sem os quatro ajustes separados, bindings e restauração dos padrões: PASS.
+- Geometria, empilhamento, novas janelas, fechamento, minimização, fullscreen, overview e ausência de loop de redraw ocioso: PASS.
+- Inspeção das capturas dos menus, janela e preferências: PASS.
+
+Resultados em `validation/corners-backend-results.json` e `validation/corners-native-results.json`.
+A verificação gráfica desta alteração usou Wayland, monitor virtual com escala 1 e GTK/libadwaita instalados; outras escalas e versões não foram validadas.
+
+# Validação da versão 21 — 8 de novembro de 2026
+
+- `make check`: schemas estritos, pacote, sinais, estilos GTK e migração das sombras: PASS.
+- Nautilus 51.1 real em GNOME Shell 51.1 / Wayland privado, libadwaita 1.10: PASS.
+- Tema escuro com backend opcional e tema claro com fallback nativo: PASS.
+- Troca da cena atrás da lateral altera seus pixels (delta médio ~44), enquanto a região de conteúdo permanece idêntica (delta 0): PASS.
+- Menu real aberto com botão direito: ator com opacidade 255, fundo GTK translúcido e backdrop de blur independente: PASS.
+- Criação/fechamento de janelas, empilhamento, geometria, minimização, fullscreen, overview, desmontagem e ociosidade: PASS.
+- Preferências sem opacidade/transparência global; bindings e restauração de padrões: PASS.
+- Adição, atualização e remoção independente dos blocos de estilo com preservação das regras pessoais: PASS.
+- Inspeção das capturas dos menus, lateral e nova aba Janelas: PASS.
+
+Resultados: `validation/selective-dark-results.json` e `validation/selective-native-light-results.json`.
+GTK 3, X11, outros releases do Nautilus e menus de Electron não foram validados nesta alteração.
+
+# Validação da versão 20 — 8 de novembro de 2026
+
+- `make check`: schemas estritos, identidade do pacote, defaults, sinais e migração: PASS.
+- GNOME Shell 51.1 em sessões Wayland/D-Bus privadas, backend opcional e fallback nativo: PASS.
+- Janelas existentes e recém-abertas: opacidade, geometria e empilhamento do backdrop: PASS.
+- Fechamento, minimização, tela cheia, overview, desativação e desmontagem: PASS.
+- Sem loop de redraw ocioso com janelas e blur nativo ativos: PASS.
+- Preferências: seis abas, bindings de todos os controles e restauração dos padrões: PASS.
+- Inspeção visual da aba Janelas e das janelas transparentes com blur: PASS.
+- Arquivos: `validation/windows-backend-results.json`, `validation/windows-native-results.json`.
+- Validação gráfica nesta versão: GNOME 51.1 / Wayland. X11 e outras versões não foram testados nesta alteração.
+
 # Validação da versão 19 — 8 de novembro de 2026
 
 - Compilação do backend e typelib com Mutter 51.1: PASS.

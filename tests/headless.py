@@ -150,6 +150,12 @@ def test():
                     style:'font-size: 38px; font-weight: bold; color: white;'}));
             Main.uiGroup.insert_child_above(testBackdrop, global.window_group);
         })()''')
+        if os.environ.get('SOFT_TEST_SIDEBAR'):
+            from nautilus_sidebar import test_sidebar
+            test_sidebar(evaluate, check, screenshot, results)
+        if os.environ.get('SOFT_TEST_WINDOWS'):
+            from window_surfaces import test_windows
+            test_windows(evaluate, check, screenshot, results)
         if os.environ.get('SOFT_TEST_PANEL_SCENE'):
             from panel_scene import test_panel_scene
             test_panel_scene(evaluate, check, screenshot, results)
@@ -437,7 +443,7 @@ def test():
                 prefs = subprocess.Popen(['gjs', '-m', str(ROOT / 'tests/prefs.js'), str(ROOT)],
                                          env=display_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 try:
-                    for page in ['elements', 'dock', 'panel', 'blur', 'icons']:
+                    for page in ['elements', 'windows', 'dock', 'panel', 'blur', 'icons']:
                         (capture / 'command').write_text(page)
                         deadline = time.monotonic() + 10
                         while not (capture / 'ready').exists() or (capture / 'ready').read_text() != page:

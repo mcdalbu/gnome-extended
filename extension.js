@@ -2,6 +2,8 @@
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import {saveSidebarStyle} from './sidebarStyle.js';
+import {WindowSurfaces} from './windowSurfaces.js';
 import {DockSurfaces} from './dockSurfaces.js';
 import {AppGrid} from './appGrid.js';
 import {SoftSurface} from './softSurface.js';
@@ -17,12 +19,14 @@ export default class GnomeExtended extends Extension {
         this._shellSurfaces = new ShellSurfaces(this._settings);
         this._backgrounds = new ShellBackgrounds(this._settings);
         this._docks = new DockSurfaces(this._settings);
+        this._windowSurfaces = new WindowSurfaces(this._settings);
         this._signals.connect(this._settings, 'changed', () => this._sync());
         this._signals.connect(Main.layoutManager, 'startup-complete', () => this._sync());
         try {
             this._shellSurfaces.start();
             this._backgrounds.start();
             this._docks.start();
+            this._windowSurfaces.start();
             this._appGrid = new AppGrid(this.getSettings('org.gnome.shell.extensions.app-grid-extended'));
             this._appGrid.start();
             this._sync();
@@ -33,9 +37,15 @@ export default class GnomeExtended extends Extension {
     }
 
     _sync() {
+        try {
+            saveSidebarStyle(this._settings);
+        } catch (error) {
+            logError(error, 'GNOME Extended: estilo da barra lateral do Arquivos');
+        }
         this._shellSurfaces.sync();
         this._backgrounds.sync();
         this._docks.sync();
+        this._windowSurfaces.sync();
         const targets = [
             ['notifications', Main.panel.statusArea.dateMenu?.menu],
             ['quick-settings', Main.panel.statusArea.quickSettings?.menu],
@@ -60,6 +70,8 @@ export default class GnomeExtended extends Extension {
     }
 
     disable() {
+        this._windowSurfaces?.destroy();
+        this._windowSurfaces = null;
         this._docks?.destroy();
         this._docks = null;
         this._appGrid?.destroy();

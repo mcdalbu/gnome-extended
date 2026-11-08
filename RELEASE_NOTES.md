@@ -1,3 +1,26 @@
+## Versão 22 — Cantos e aparência compartilhada
+
+- Corrigido o blur retangular visível fora dos cantos das janelas e menus.
+- Máscara arredondada do backend opcional e recorte do destino no fallback nativo.
+- Opacidade, intensidade, brilho e frequência de janelas/menus seguem a aba Blur.
+- Removidos os quatro ajustes separados da aba Janelas; as escolhas gerais existentes são preservadas.
+- Alterações da opacidade geral atualizam os estilos GTK. Reabra os aplicativos para carregar a nova opacidade; os parâmetros do blur mudam imediatamente.
+
+## Versão 21 — Transparência por elemento
+
+- Removidos o switch de transparência da janela inteira e sua opacidade global.
+- Perfil específico para o fundo da barra lateral do Arquivos, incluindo o cabeçalho esquerdo.
+- Menus de contexto GTK 4 com opacidade do fundo e blur independentes da lateral.
+- Textos, ícones e conteúdo dos arquivos permanecem opacos: a extensão não altera mais a opacidade dos atores de janela.
+- Blocos GTK identificados preservam o CSS pessoal. Reabra os aplicativos para carregar mudanças de estilo.
+
+## Versão 20 — Janelas de aplicativos
+
+- Nova aba Janelas com switches independentes de transparência e blur, ambos desligados por padrão.
+- Opacidade de 0 a 100% para a janela inteira e controles próprios de intensidade e brilho do blur.
+- O backdrop acompanha posição, tamanho e empilhamento, sem desfocar o conteúdo do aplicativo.
+- Overview, tela cheia e bloqueio suspendem o efeito. Desativar restaura a opacidade anterior e remove as camadas.
+
 # GNOME Extended 19 — 8 de novembro de 2026
 
 - Preserva redraw parcial quando o raio efetivo do blur é zero.

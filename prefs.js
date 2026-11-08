@@ -2,6 +2,7 @@
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
+import {saveSidebarStyle} from './sidebarStyle.js';
 import {migrateShadowSettings} from './shadowSettings.js';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -52,6 +53,40 @@ export default class GnomeExtendedPreferences extends ExtensionPreferences {
             ['lock-screen', 'Tela de bloqueio', 'Papel de parede desfocado; relógio e autenticação nítidos.'],
         ])
             toggle(elements, settings, key, title, subtitle);
+
+        const windowsPage = page('windows', 'Janelas', 'focus-windows-symbolic');
+        const sidebar = group(windowsPage, 'Elementos do aplicativo',
+            'Transparência apenas no fundo do elemento. Textos, ícones e a área de arquivos permanecem opacos.');
+        toggle(sidebar, settings, 'windows-nautilus-sidebar', 'Arquivos: apenas a barra lateral',
+            'Inclui o cabeçalho da lateral esquerda. A área de arquivos permanece opaca.');
+        toggle(sidebar, settings, 'windows-app-menus', 'Menus de contexto dos aplicativos GTK 4',
+            'Transparência no fundo e blur, preservando o texto. Inclui o menu de botão direito do Arquivos.');
+        const sidebarStatus = new Adw.ActionRow({title: 'Aplicação do estilo',
+            subtitle: 'Reabra os aplicativos após alterar o estilo. Aplicativos com menus próprios, como Electron, não são estilizados.'});
+        sidebar.add(sidebarStatus);
+        const syncSidebarStyle = () => {
+            try {
+                saveSidebarStyle(settings);
+                sidebarStatus.subtitle = 'Reabra os aplicativos após alterar o estilo. Aplicativos com menus próprios, como Electron, não são estilizados.';
+            } catch (error) {
+                sidebarStatus.subtitle = `Não foi possível aplicar o estilo: ${error.message}`;
+            }
+        };
+        const sidebarSignals = ['windows-nautilus-sidebar', 'windows-app-menus', 'opacity'].map(key =>
+            settings.connect(`changed::${key}`, syncSidebarStyle));
+        window.connect('close-request', () => {
+            for (const id of sidebarSignals)
+                settings.disconnect(id);
+            return false;
+        });
+        syncSidebarStyle();
+        const windows = group(windowsPage, 'Blur das janelas e menus',
+            'O conteúdo do aplicativo permanece opaco. O blur aparece atrás dos elementos transparentes compatíveis.');
+        toggle(windows, settings, 'windows-blur', 'Ativar blur atrás das janelas',
+            'Também funciona com a barra lateral transparente do Arquivos. Áreas opacas cobrem o blur.');
+
+        windows.add(new Adw.ActionRow({title: 'Aparência compartilhada',
+            subtitle: 'Opacidade, intensidade, brilho e frequência seguem os valores da aba Blur.'}));
 
         const dockPage = page('dock', 'Dock', 'view-app-grid-symbolic');
         const dock = group(dockPage, 'Dash to Dock e forks',

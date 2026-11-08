@@ -99,5 +99,18 @@
       <summary>Fundo do dock totalmente transparente no overview</summary>
       <description>Remove fundo, contorno, sombra do fundo e blur dos docks compatíveis enquanto o overview estiver aberto, preservando os ícones. Ao fechar, restaura a aparência anterior, mesmo com o blur do dock desativado.</description>
     </key>
+    <key name="windows-blur" type="b">
+      <default>false</default>
+      <summary>Blur atrás das janelas</summary>
+    </key>
+    <key name="windows-nautilus-sidebar" type="b">
+      <default>false</default>
+      <summary>Transparência apenas no fundo da barra lateral do Arquivos</summary>
+      <description>Estilo GTK específico do Nautilus. Textos, ícones e conteúdo permanecem opacos. Reabra o Arquivos para carregar alterações.</description>
+    </key>
+    <key name="windows-app-menus" type="b">
+      <default>false</default>
+      <summary>Transparência e blur nos menus de contexto GTK 4</summary>
+    </key>
   </schema>
 </schemalist>

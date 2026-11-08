@@ -1,15 +1,19 @@
 # GNOME Extended
 
 Blur e transparência para superfícies do GNOME Shell, integração com Dash to Dock
-e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão estável **18**.
+e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão **22**.
 
 ## Configurações
 
-As preferências estão organizadas em cinco abas:
+As preferências estão organizadas em seis abas:
 
 - **Elementos:** notificações/calendário, configurações rápidas, diálogos,
   banners, pastas, alternadores, indicadores de volume/brilho, captura de tela,
   menus, overview e tela de bloqueio.
+- **Janelas:** transparência apenas no fundo da barra lateral do Arquivos e
+  nos menus de contexto GTK 4, com a opacidade geral da aba Blur. Textos, ícones e
+  a área de arquivos permanecem opacos. Intensidade, brilho e frequência também seguem a aba Blur.
+  A opção de transparência da janela inteira foi removida.
 - **Dock:** ativação de blur e transparência nos docks compatíveis detectados,
   com opção **Fundo 100% transparente no overview**. Remove fundo, contorno,
   sombra do fundo e blur enquanto a visão geral estiver aberta e restaura a
@@ -34,7 +38,7 @@ migrada para os três switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v19.zip
+gnome-extensions install --force gnome-extended@local_v22.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua
@@ -86,3 +90,26 @@ Veja [RELEASE_NOTES.md](RELEASE_NOTES.md) e [VALIDATION.md](VALIDATION.md).
 A barra superior no tema escuro mantém a cor definida pelo tema do GNOME,
 tanto transparente quanto opaca. O cinza Adwaita e a troca de cor ao ficar
 opaca foram removidos; a transparência, o blur e suas transições continuam ativos.
+
+## Transparência por elemento
+
+Na aba **Janelas**, ative **Arquivos: apenas a barra lateral** e/ou **Menus de
+contexto dos aplicativos GTK 4**. Para a lateral desfocada, ative também o blur
+atrás das janelas. Menus têm seu próprio switch de ativação; a aparência é compartilhada com a aba Blur.
+O menu da borda da janela, desenhado pelo Shell, usa **Elementos → Menus contextuais**.
+
+Os fundos são estilizados em blocos identificados de `~/.config/gtk-4.0/gtk.css`;
+as demais regras pessoais são preservadas. Reabra os aplicativos após mudar o
+estilo. Desativar um switch remove seu bloco. O estilo GTK persiste ao desligar
+somente a extensão; o blur depende dela. Para restaurar o fundo opaco, desative o
+switch correspondente nas preferências e reabra o aplicativo.
+
+O perfil da lateral foi validado no Nautilus 51.1 / libadwaita 1.10. Os menus
+compatíveis são `GtkPopoverMenu` em GTK 4 moderno (CSS com variáveis e `color-mix`).
+GTK 3, Electron e aplicativos com desenho próprio de menus não são estilizados.
+
+A camada de blur acompanha os cantos arredondados do perfil GTK (janela de
+Arquivos: 15 px; menus: 12 px), sem fundo retangular fora do contorno. Janelas
+maximizadas usam cantos retos. O backend opcional usa sua máscara arredondada;
+o fallback nativo recorta a composição diretamente no framebuffer, sem uma
+captura intermediária que poderia alterar a imagem desfocada.

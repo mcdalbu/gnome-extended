@@ -29,7 +29,7 @@ function visit(widget) {
 }
 visit(window);
 function assert(value, message) { if (!value) throw new Error(message); }
-for (const name of ['elements', 'dock', 'panel', 'blur', 'icons']) assert(pages.has(name), `Page ${name}`);
+for (const name of ['elements', 'windows', 'dock', 'panel', 'blur', 'icons']) assert(pages.has(name), `Page ${name}`);
 for (const [source, key] of [
     ...settings.settings_schema.list_keys().map(k => [settings, k]),
     ...icons.settings_schema.list_keys().filter(k => k !== 'icon-shadow-enabled').map(k => [icons, k]),
@@ -60,6 +60,8 @@ for (const [source, key] of [
     }
 }
 function pageOf(widget) { return widget.get_ancestor(Adw.PreferencesPage)?.name; }
+for (const key of ['windows-app-menus', 'windows-nautilus-sidebar', 'windows-blur'])
+    assert(pageOf(controls.get(key)) === 'windows', `Windows owns ${key}`);
 for (const key of ['docks', 'dock-transparent-in-overview'])
     assert(pageOf(controls.get(key)) === 'dock', `Dock owns ${key}`);
 for (const key of ['top-panel', 'panel-enabled-dark', 'panel-enabled-light', 'panel-opaque-dark', 'panel-opaque-light'])
@@ -97,4 +99,4 @@ if (captureDir) {
     loop.run();
 }
 window.destroy();
-print('Preferences: five pages, control placement, all bindings, reset and backend GitHub link passed');
+print('Preferences: six pages, control placement, all bindings, reset and backend GitHub link passed');
