@@ -2,6 +2,7 @@
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import {PtyxisOpacity} from './ptyxisOpacity.js';
 import {saveSidebarStyle} from './sidebarStyle.js';
 import {WindowSurfaces} from './windowSurfaces.js';
 import {DockSurfaces} from './dockSurfaces.js';
@@ -19,6 +20,7 @@ export default class GnomeExtended extends Extension {
         this._shellSurfaces = new ShellSurfaces(this._settings);
         this._backgrounds = new ShellBackgrounds(this._settings);
         this._docks = new DockSurfaces(this._settings);
+        this._ptyxisOpacity = new PtyxisOpacity(this._settings);
         this._windowSurfaces = new WindowSurfaces(this._settings);
         this._signals.connect(this._settings, 'changed', () => this._sync());
         this._signals.connect(Main.layoutManager, 'startup-complete', () => this._sync());
@@ -27,6 +29,7 @@ export default class GnomeExtended extends Extension {
             this._backgrounds.start();
             this._docks.start();
             this._windowSurfaces.start();
+            this._ptyxisOpacity.start();
             this._appGrid = new AppGrid(this.getSettings('org.gnome.shell.extensions.app-grid-extended'));
             this._appGrid.start();
             this._sync();
@@ -41,6 +44,11 @@ export default class GnomeExtended extends Extension {
             saveSidebarStyle(this._settings);
         } catch (error) {
             logError(error, 'GNOME Extended: estilo da barra lateral do Arquivos');
+        }
+        try {
+            this._ptyxisOpacity.sync();
+        } catch (error) {
+            logError(error, 'GNOME Extended: opacidade do Ptyxis');
         }
         this._shellSurfaces.sync();
         this._backgrounds.sync();
@@ -70,6 +78,8 @@ export default class GnomeExtended extends Extension {
     }
 
     disable() {
+        this._ptyxisOpacity?.destroy();
+        this._ptyxisOpacity = null;
         this._windowSurfaces?.destroy();
         this._windowSurfaces = null;
         this._docks?.destroy();

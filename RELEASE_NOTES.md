@@ -1,3 +1,11 @@
+## Versão 23 — Terminal Ptyxis
+
+- Nova opção **Ptyxis: apenas a área do terminal** na aba Janelas.
+- Transparência nativa só no fundo do terminal, mantendo barra de título e texto opacos.
+- Blur independente do switch geral das janelas; aparência compartilhada com a aba Blur.
+- Perfis existentes e novos usam a opacidade geral. Desativar restaura os valores anteriores dos perfis.
+- Backup persistente conserva os valores após reinício da sessão e respeita alterações manuais externas.
+
 ## Versão 22 — Cantos e aparência compartilhada
 
 - Corrigido o blur retangular visível fora dos cantos das janelas e menus.

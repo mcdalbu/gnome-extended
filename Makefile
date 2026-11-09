@@ -1,7 +1,7 @@
 UUID = gnome-extended@local
-VERSION = 22
+VERSION = 23
 ZIP = $(UUID)_v$(VERSION).zip
-SOURCES = roundedClip.js sidebarStyle.js windowSurfaces.js metadata.json extension.js appGrid.js shadowSettings.js dockSurfaces.js softSurface.js shellSurfaces.js shellBackgrounds.js panelOpacity.js signals.js frameSignals.js blurBackend.js blurRedrawGuard.js prefs.js COPYING README.md BLUR_REVIEW.md RELEASE_NOTES.md VALIDATION.md
+SOURCES = ptyxisOpacity.js roundedClip.js sidebarStyle.js windowSurfaces.js metadata.json extension.js appGrid.js shadowSettings.js dockSurfaces.js softSurface.js shellSurfaces.js shellBackgrounds.js panelOpacity.js signals.js frameSignals.js blurBackend.js blurRedrawGuard.js prefs.js COPYING README.md BLUR_REVIEW.md RELEASE_NOTES.md VALIDATION.md
 
 .PHONY: all check zip-file clean
 all: schemas/gschemas.compiled
@@ -14,6 +14,7 @@ check: all
 	python3 tests/check-package.py
 	gjs -m tests/frame-signals.js
 	gjs -m tests/sidebar-css.js
+	python3 tests/ptyxis_settings.py
 	GSETTINGS_SCHEMA_DIR=$(CURDIR)/schemas GSETTINGS_BACKEND=memory gjs -m tests/shadow-settings.js
 
 zip-file: check

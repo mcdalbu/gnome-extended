@@ -2,6 +2,7 @@
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
+import {PtyxisOpacity} from './ptyxisOpacity.js';
 import {saveSidebarStyle} from './sidebarStyle.js';
 import {migrateShadowSettings} from './shadowSettings.js';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
@@ -61,22 +62,27 @@ export default class GnomeExtendedPreferences extends ExtensionPreferences {
             'Inclui o cabeçalho da lateral esquerda. A área de arquivos permanece opaca.');
         toggle(sidebar, settings, 'windows-app-menus', 'Menus de contexto dos aplicativos GTK 4',
             'Transparência no fundo e blur, preservando o texto. Inclui o menu de botão direito do Arquivos.');
+        toggle(sidebar, settings, 'windows-ptyxis', 'Ptyxis: apenas a área do terminal',
+            'Transparência e blur no fundo do terminal. A barra de título permanece opaca; usa os valores gerais da aba Blur. Ao desativar, restaura a opacidade anterior dos perfis.');
+        const ptyxisOpacity = new PtyxisOpacity(settings);
         const sidebarStatus = new Adw.ActionRow({title: 'Aplicação do estilo',
             subtitle: 'Reabra os aplicativos após alterar o estilo. Aplicativos com menus próprios, como Electron, não são estilizados.'});
         sidebar.add(sidebarStatus);
         const syncSidebarStyle = () => {
             try {
                 saveSidebarStyle(settings);
-                sidebarStatus.subtitle = 'Reabra os aplicativos após alterar o estilo. Aplicativos com menus próprios, como Electron, não são estilizados.';
+                const hasPtyxis = ptyxisOpacity.sync();
+                sidebarStatus.subtitle = settings.get_boolean('windows-ptyxis') && !hasPtyxis ? 'Ptyxis não está instalado ou seu schema de opacidade não está disponível.' : 'Reabra os aplicativos após alterar o estilo. Aplicativos com menus próprios, como Electron, não são estilizados.';
             } catch (error) {
                 sidebarStatus.subtitle = `Não foi possível aplicar o estilo: ${error.message}`;
             }
         };
-        const sidebarSignals = ['windows-nautilus-sidebar', 'windows-app-menus', 'opacity'].map(key =>
+        const sidebarSignals = ['windows-nautilus-sidebar', 'windows-app-menus', 'windows-ptyxis', 'opacity'].map(key =>
             settings.connect(`changed::${key}`, syncSidebarStyle));
         window.connect('close-request', () => {
             for (const id of sidebarSignals)
                 settings.disconnect(id);
+            ptyxisOpacity.destroy();
             return false;
         });
         syncSidebarStyle();

@@ -1,7 +1,7 @@
 # GNOME Extended
 
 Blur e transparência para superfícies do GNOME Shell, integração com Dash to Dock
-e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão **22**.
+e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão **23**.
 
 ## Configurações
 
@@ -11,7 +11,7 @@ As preferências estão organizadas em seis abas:
   banners, pastas, alternadores, indicadores de volume/brilho, captura de tela,
   menus, overview e tela de bloqueio.
 - **Janelas:** transparência apenas no fundo da barra lateral do Arquivos e
-  nos menus de contexto GTK 4, com a opacidade geral da aba Blur. Textos, ícones e
+  nos menus de contexto GTK 4 e na área do terminal Ptyxis (barra de título opaca), com a opacidade geral da aba Blur. Textos, ícones e
   a área de arquivos permanecem opacos. Intensidade, brilho e frequência também seguem a aba Blur.
   A opção de transparência da janela inteira foi removida.
 - **Dock:** ativação de blur e transparência nos docks compatíveis detectados,
@@ -38,7 +38,7 @@ migrada para os três switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v22.zip
+gnome-extensions install --force gnome-extended@local_v23.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua
@@ -113,3 +113,20 @@ Arquivos: 15 px; menus: 12 px), sem fundo retangular fora do contorno. Janelas
 maximizadas usam cantos retos. O backend opcional usa sua máscara arredondada;
 o fallback nativo recorta a composição diretamente no framebuffer, sem uma
 captura intermediária que poderia alterar a imagem desfocada.
+
+## Ptyxis
+
+Na aba **Janelas**, ative **Ptyxis: apenas a área do terminal**. A opção inclui
+transparência do fundo e blur, sem depender do switch geral de blur das janelas.
+A barra de título e os textos permanecem opacos. Opacidade, intensidade, brilho e
+frequência seguem a aba **Blur**. A opacidade nativa dos perfis muda imediatamente,
+inclusive nos terminais já abertos; novos perfis também são acompanhados.
+
+A integração usa os schemas do Ptyxis instalado no sistema e modifica apenas
+`opacity` dos perfis. Os valores anteriores, incluindo valores não definidos,
+são salvos em `~/.config/gnome-extended/ptyxis-opacity.json` e restaurados ao
+desativar o switch. Uma alteração manual feita fora da integração antes de
+desativá-la é preservada quando difere dos valores aplicados por ela.
+O estilo de opacidade persiste ao desligar somente a extensão, como os estilos
+GTK; o blur exige a extensão ativa. O Ptyxis não é uma dependência obrigatória.
+Instalações Flatpak com schemas isolados não são configuradas por esta opção.

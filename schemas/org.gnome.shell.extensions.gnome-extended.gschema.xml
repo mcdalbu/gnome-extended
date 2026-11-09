@@ -112,5 +112,10 @@
       <default>false</default>
       <summary>Transparência e blur nos menus de contexto GTK 4</summary>
     </key>
+    <key name="windows-ptyxis" type="b">
+      <default>false</default>
+      <summary>Transparência e blur apenas no fundo do terminal Ptyxis</summary>
+      <description>Usa a opacidade geral nos perfis do Ptyxis, preservando a barra de título opaca. Ao desativar, restaura os valores anteriores.</description>
+    </key>
   </schema>
 </schemalist>

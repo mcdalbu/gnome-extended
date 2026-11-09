@@ -1,3 +1,17 @@
+# Validação da versão 23 — 8 de novembro de 2026
+
+- `make check`: pacote, schemas, sinais, estilos GTK e perfis do Ptyxis: PASS.
+- Ptyxis 50.1 / VTE 0.84.1 real, GNOME Shell 51.1 em sessões Wayland privadas: PASS.
+- Backend opcional e fallback nativo; comparação da cena atrás do terminal: delta médio ~34 na área do terminal e 0 na barra de título.
+- Ator da janela mantém opacidade 255; somente a opacidade nativa do fundo do VTE é alterada: PASS.
+- Blur independente do switch geral das janelas, opacidade compartilhada e restauração de 0,82 após desativar: PASS.
+- Teste de perfis em GSettings de memória: perfis existentes/novos, valor original explícito e não definido, reinício, alterações manuais e backup inválido: PASS.
+- Regressões de lateral do Arquivos, menus, cantos, geometria, empilhamento, ociosidade, desmontagem e preferências: PASS.
+- Inspeção visual do terminal com título opaco e texto nítido: PASS.
+
+Resultados: `validation/ptyxis-backend-results.json` e `validation/ptyxis-native-results.json`.
+No harness privado, um substituto de `systemd-run` no PATH do processo de teste executa diretamente o comando de teste, pois a sessão privada não possui um gerenciador systemd de usuário. O aplicativo Ptyxis e o VTE usados na renderização são os instalados no sistema. Terminais da sessão real não são abertos nem encerrados pelos testes.
+
 # Validação da versão 22 — 8 de novembro de 2026
 
 - `make check`: schemas, pacote, sinais, estilos GTK e migração: PASS.

@@ -63,7 +63,8 @@ export class WindowSurfaces {
 
     sync() {
         if (!this._settings.get_boolean('windows-blur') &&
-            !this._settings.get_boolean('windows-app-menus')) {
+            !this._settings.get_boolean('windows-app-menus') &&
+            !this._settings.get_boolean('windows-ptyxis')) {
             this._clear();
             return;
         }
@@ -75,7 +76,8 @@ export class WindowSurfaces {
     _track(actor) {
         if (this._windows.has(actor) || !(actor instanceof Meta.WindowActor) ||
             (!this._settings.get_boolean('windows-blur') &&
-             !this._settings.get_boolean('windows-app-menus')))
+             !this._settings.get_boolean('windows-app-menus') &&
+             !this._settings.get_boolean('windows-ptyxis')))
             return;
         const window = actor.meta_window;
         const menu = menuTypes.includes(window.get_window_type());
@@ -121,8 +123,11 @@ export class WindowSurfaces {
         const active = !Main.overview.visible && !Main.sessionMode.isLocked &&
             Main.sessionMode.currentMode === 'user' && !window.is_fullscreen();
         const parent = actor.get_parent();
+        const ptyxis = window.get_gtk_application_id() === 'org.gnome.Ptyxis' ||
+            window.get_wm_class()?.startsWith('org.gnome.Ptyxis');
         const enabled = active && (state.menu ? this._settings.get_boolean('windows-app-menus')
-            : this._settings.get_boolean('windows-blur')) &&
+            : (ptyxis && this._settings.get_boolean('windows-ptyxis')) ||
+              this._settings.get_boolean('windows-blur')) &&
             actor.visible && actor.mapped && actor.opacity > 0 && !window.minimized &&
             actor.width * actor.scale_x >= 1 && actor.height * actor.scale_y >= 1 &&
             window.showing_on_its_workspace() &&

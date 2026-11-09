@@ -60,7 +60,7 @@ for (const [source, key] of [
     }
 }
 function pageOf(widget) { return widget.get_ancestor(Adw.PreferencesPage)?.name; }
-for (const key of ['windows-app-menus', 'windows-nautilus-sidebar', 'windows-blur'])
+for (const key of ['windows-ptyxis', 'windows-app-menus', 'windows-nautilus-sidebar', 'windows-blur'])
     assert(pageOf(controls.get(key)) === 'windows', `Windows owns ${key}`);
 for (const key of ['docks', 'dock-transparent-in-overview'])
     assert(pageOf(controls.get(key)) === 'dock', `Dock owns ${key}`);
