@@ -53,6 +53,7 @@ def test_ptyxis(evaluate, check, screenshot, results):
         first=screenshot('ptyxis-terminal')
         check('ptyxis-titlebar-and-text-opaque', 'ptyxisActor.opacity===255')
         check('ptyxis-has-independent-blur', 'soft._windowSurfaces._windows.get(ptyxisActor)?.blur?.visible && !soft._settings.get_boolean("windows-blur")')
+        check('ptyxis-observes-backdrop-while-visible', '!!soft._windowSurfaces._stopWindowDamage')
         evaluate('testBackdrop.hide()')
         time.sleep(.3)
         second=screenshot('ptyxis-wallpaper')
@@ -68,10 +69,19 @@ def test_ptyxis(evaluate, check, screenshot, results):
         assert terminal_delta>5, 'Terminal background must reveal the scene'
         assert title_delta<1, 'Titlebar must remain opaque'
         evaluate('testBackdrop.show();soft._settings.set_int("opacity",72)')
+        time.sleep(.2)
         check('ptyxis-shares-general-opacity', 'new imports.gi.Gio.Settings({schema_id:"org.gnome.Ptyxis.Profile",path:"/org/gnome/Ptyxis/Profiles/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"}).get_double("opacity")===.72')
+        profile.set_double('opacity', .31)
+        Gio.Settings.sync()
+        evaluate('soft._settings.set_int("blur-radius",43); soft._settings.set_int("brightness",71)')
+        check('ptyxis-blur-parameters-preserve-manual-opacity',
+              'new imports.gi.Gio.Settings({schema_id:"org.gnome.Ptyxis.Profile",path:"/org/gnome/Ptyxis/Profiles/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"}).get_double("opacity")===.31')
+        evaluate('soft._settings.set_int("opacity",73)')
+        time.sleep(.2)
         evaluate('soft._settings.set_boolean("windows-ptyxis",false)')
         check('ptyxis-restores-previous-opacity', 'new imports.gi.Gio.Settings({schema_id:"org.gnome.Ptyxis.Profile",path:"/org/gnome/Ptyxis/Profiles/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"}).get_double("opacity")===.82')
-        check('ptyxis-disables-backdrop', '!soft._windowSurfaces._windows.size')
+        check('ptyxis-disables-backdrop',
+              '!soft._windowSurfaces._windows.size && !soft._windowSurfaces._stopWindowDamage')
     finally:
         client.terminate()
         try: client.wait(timeout=5)

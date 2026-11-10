@@ -1,3 +1,19 @@
+## Versão 25 — Otimizações de blur e transparência
+
+- O painel, os menus, o dock e as janelas compartilham leituras de geometria e agrupam mudanças antes de repintar o fundo.
+- A ordem das janelas só invalida os fundos afetados. O blur de janelas dispensa redesenho integral com raio zero e brilho em 100%. O raio padrão continua em 30.
+- As mudanças de opacidade atualizam o CSS GTK e os perfis do Ptyxis após uma breve pausa. Raio, brilho e frequência atualizam apenas o efeito.
+- O monitoramento completo do fundo do Ptyxis começa quando há um terminal visível. O blur acompanha a abertura do menu rápido desde o primeiro quadro visível.
+- A aba **Ícones** do GNOME Extended aplica as sombras da grade, das pastas, do dock e do Alt+Tab com as preferências já salvas.
+
+### Dependências e atualização
+
+- A barra lateral do **Configurações** requer o utilitário `gresource`. No Fedora, ele é fornecido pelo pacote `glib2-devel`.
+- O GNOME Rounded Blur é opcional. O [backend 1.0.2-4.local da versão 24](https://github.com/mcdalbu/gnome-extended/releases/tag/v24) continua compatível no Fedora 45 x86_64 com Mutter 51.
+- Instale `gnome-extended@local_v25.zip` com `gnome-extensions install --force`. Saia da sessão e entre novamente para carregar o código.
+
+Validação em sessões isoladas do GNOME Shell 51.1 com o blur nativo e o GNOME Rounded Blur.
+
 ## Versão 24 — Barra lateral do Configurações
 
 - Nova opção **Configurações: apenas a barra lateral**, seguindo o padrão do Arquivos.

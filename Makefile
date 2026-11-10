@@ -1,7 +1,7 @@
 UUID = gnome-extended@local
-VERSION = 24
+VERSION = 25
 ZIP = $(UUID)_v$(VERSION).zip
-SOURCES = settingsLauncher.js ptyxisOpacity.js roundedClip.js sidebarStyle.js windowSurfaces.js metadata.json extension.js appGrid.js shadowSettings.js dockSurfaces.js softSurface.js shellSurfaces.js shellBackgrounds.js panelOpacity.js signals.js frameSignals.js blurBackend.js blurRedrawGuard.js prefs.js COPYING README.md BLUR_REVIEW.md RELEASE_NOTES.md VALIDATION.md
+SOURCES = settingsLauncher.js ptyxisOpacity.js roundedClip.js sidebarStyle.js windowDamage.js windowSurfaces.js metadata.json extension.js appGrid.js shadowSettings.js dockSurfaces.js softSurface.js shellSurfaces.js shellBackgrounds.js panelOpacity.js signals.js frameSignals.js blurBackend.js blurRedrawGuard.js prefs.js COPYING README.md BLUR_REVIEW.md RELEASE_NOTES.md VALIDATION.md
 
 .PHONY: all check zip-file clean
 all: schemas/gschemas.compiled

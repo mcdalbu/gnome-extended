@@ -6,6 +6,7 @@ import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as BoxPointer from 'resource:///org/gnome/shell/ui/boxpointer.js';
 import {ANIMATION_TIME} from 'resource:///org/gnome/shell/ui/overview.js';
 import * as LoginManager from 'resource:///org/gnome/shell/misc/loginManager.js';
 
@@ -14,8 +15,11 @@ import {BlurRedrawGuard} from './blurRedrawGuard.js';
 import {Signals} from './signals.js';
 import {FrameSignals} from './frameSignals.js';
 import {PanelOpacity} from './panelOpacity.js';
+import {boundsIntersect, windowDamage} from './windowDamage.js';
 
 const BlurBackend = await loadBlurBackend(Shell, GObject);
+// Older Shells keep the BoxPointer duration private.
+const popupAnimationTime = BoxPointer.POPUP_ANIMATION_TIME ?? 150;
 
 function appendStyle(original, suffix) {
     // St's CSS parser stops at an empty declaration (a leading or doubled ';').
@@ -31,11 +35,13 @@ export class SoftSurface {
         this._signals = new Signals();
         this._frames = new FrameSignals();
         this._children = new Map();
-        this._windows = new Map();
+        this._stopWindowDamage = null;
         this._guard = new BlurRedrawGuard(Clutter, Meta);
         this._later = 0;
         this._styleUntil = 0;
+        this._openingUntil = 0;
         this._opaqueUntil = 0;
+        this._opaqueTimeout = 0;
         this._needsEffect = false;
         this._originalBoxStyle = menu.box.get_style();
         this._originalMenuStyle = menu.actor.get_style?.() ?? null;
@@ -115,7 +121,7 @@ export class SoftSurface {
                 this._signals.connect(overviewAdjustment, 'notify::value', () => {
                     this._panelFade.value = panelFade();
                 });
-                this._signals.connect(St.Settings.get(), 'notify::color-scheme', () => this.update());
+                this._signals.connect(St.Settings.get(), 'notify::color-scheme', () => this._refreshTheme());
             }
             this._signals.connect(this._group, 'destroy', () => {
                 // A Shell container may destroy siblings before their surface.
@@ -135,7 +141,8 @@ export class SoftSurface {
                     const parent = anchor.get_parent();
                     parent.set_child_below_sibling(this._group, anchor);
                     this._stackPending = true;
-                    this.update();
+                    this._openingUntil = GLib.get_monotonic_time() + popupAnimationTime * 1000;
+                    this._refreshTheme();
                 } else {
                     // The menu actor stays mapped through its exit animation.
                     // End the separate backdrop when closing starts, including
@@ -158,7 +165,7 @@ export class SoftSurface {
                         return;
                     const suffix = isBox ? this._boxSuffix : this._menuSuffix;
                     this[field] = suffix && style ? style.replace(suffix, '') : style;
-                    this.update();
+                    this._refreshTheme();
                 });
             }
 
@@ -166,14 +173,28 @@ export class SoftSurface {
                 this.destroy(true);
                 onDestroyed();
             });
-            this._signals.connect(menu.actor, 'notify::mapped', () => {
+            const syncMapping = () => {
                 // Reuse GPU resources on ordinary reopening; recovery after
                 // sleep/lock still explicitly replaces the effect.
-                this._syncVisibility();
+                if (!this._themeColor && menu.actor.mapped && menu.box.mapped)
+                    this.update();
+                else
+                    this._syncVisibility();
                 this._queueRepaint();
-            });
+            };
+            this._signals.connect(menu.actor, 'notify::mapped', syncMapping);
+            if (menu.box !== menu.actor) {
+                this._signals.connect(menu.box, 'notify::mapped', () => {
+                    if (menu.box.mapped && !this._themeColor)
+                        syncMapping();
+                });
+            }
             this._signals.connect(menu.actor, 'notify::opacity', () => this._syncVisibility());
-            this._signals.connect(this._context, 'changed', () => this.update());
+            this._signals.connect(this._context, 'changed', () => {
+                this._themeColor = null;
+                if (menu.actor.mapped && menu.box.mapped)
+                    this.update();
+            });
             this._signals.connect(this._login, 'prepare-for-sleep', (_login, sleeping) => {
                 this._sleeping = sleeping;
                 this._recover();
@@ -187,16 +208,22 @@ export class SoftSurface {
                 this._syncVisibility();
                 if (!this._group.visible)
                     return;
+                const opening = this._stackPending || (!this._options.plain &&
+                    (GLib.get_monotonic_time() < this._openingUntil || menu.box.get_paint_opacity() < 255));
                 if (this._stackPending) {
                     const anchor = this._options.anchor ?? this.menu.actor;
                     anchor.get_parent().set_child_below_sibling(this._group, anchor);
                     this._stackPending = false;
                 }
-                this._syncGeometry(false);
+                // During opening, give the moving BoxPointer backdrop an
+                // allocation before the first paint, including the initial
+                // frame before the box reports its animated opacity.
+                if (opening)
+                    this._syncGeometry(false);
                 // A zero-radius effect paints only the actor, without sampling
                 // the framebuffer. Keep partial redraws during that phase.
                 if (this._effect[this._radiusProperty] > 0)
-                    this._guard.begin(this._blur, view);
+                    this._guard.begin(this._blur, view, opening ? this._blur : menu.box);
                 else
                     this._guard.end();
                 if (this._blur.mapped && GLib.get_monotonic_time() < this._styleUntil)
@@ -209,15 +236,6 @@ export class SoftSurface {
             });
             this._signals.connect(global.display, 'restacked', () => this._queueRepaint());
 
-            const added = GObject.signal_lookup('child-added', global.window_group)
-                ? 'child-added' : 'actor-added';
-            const removed = added === 'child-added' ? 'child-removed' : 'actor-removed';
-            this._signals.connect(global.window_group, added, (_group, actor) => this._trackWindow(actor));
-            this._signals.connect(global.window_group, removed, (_group, actor) => {
-                this._untrackWindow(actor);
-            });
-            for (const actor of global.get_window_actors())
-                this._trackWindow(actor);
             this._trackChild(menu.box);
             this.update();
             this._panelPolicy?.start();
@@ -306,8 +324,7 @@ export class SoftSurface {
         const style = `background-color: rgba(${red}, ${green}, ${blue}, ${this._panelAlpha}); transition-duration: ${duration}ms;`;
         if (this._panelTint.get_style() !== style) {
             this._panelTint.set_style(style);
-            this._opaqueUntil = GLib.get_monotonic_time() +
-                (this._panelTint.get_theme_node().get_transition_duration() + 50) * 1000;
+            this._settleOpacityAt(GLib.get_monotonic_time() + (duration + 50) * 1000);
         }
     }
 
@@ -329,19 +346,33 @@ export class SoftSurface {
             onComplete: () => this._options.onFadeComplete?.()});
     }
 
-    update() {
+    _refreshTheme() {
+        this._themeColor = null;
+        this.update();
+    }
+
+    update(effectOnly = false) {
+        if (effectOnly) {
+            this._updateEffect();
+            this._blurBounds = null;
+            this._queueRepaint();
+            return;
+        }
         this._panelPolicy?.sync();
         this._updateDockFade();
         // Read the actual theme color before adding our own alpha. Never change
         // the opacity of the content actor: labels and icons must stay sharp.
         const {box, actor} = this.menu;
         this._settingStyle = true;
-        box.set_style(this._originalBoxStyle);
-        if (!this._options.plain)
-            actor.set_style(this._originalMenuStyle);
-        const color = box.get_theme_node().get_background_color();
+        if (!this._themeColor) {
+            box.set_style(this._originalBoxStyle);
+            if (!this._options.plain)
+                actor.set_style(this._originalMenuStyle);
+            this._themeColor = box.get_theme_node().get_background_color();
+            this._readThemeCorners();
+        }
+        const color = this._themeColor;
         const alpha = opacityFraction(this._settings.get_int('opacity'));
-        this._readThemeCorners();
         if (this._options.dock && !this._options.blurEnabled()) {
             this._boxSuffix = '';
         } else if (this._panelTint) {
@@ -359,23 +390,23 @@ export class SoftSurface {
         }
         this._appliedBoxStyle = this._boxSuffix
             ? appendStyle(this._originalBoxStyle, this._boxSuffix) : this._originalBoxStyle;
-        box.set_style(this._appliedBoxStyle);
+        if (box.get_style() !== this._appliedBoxStyle) {
+            box.set_style(this._appliedBoxStyle);
+            const duration = box.get_theme_node().get_transition_duration() + 50;
+            this._settleOpacityAt(GLib.get_monotonic_time() + duration * 1000);
+        }
         // Older themes draw a second opaque surface in BoxPointer's Cairo
         // border. Suppress just its fill; keep layout, border and input intact.
         if (!this._options.plain) {
             this._menuSuffix = '-arrow-background-color: transparent;';
             this._appliedMenuStyle = appendStyle(this._originalMenuStyle, this._menuSuffix);
-            actor.set_style(this._appliedMenuStyle);
+            if (actor.get_style() !== this._appliedMenuStyle)
+                actor.set_style(this._appliedMenuStyle);
         }
         this._settingStyle = false;
         this._updateEffect();
-        // St's theme node reports the target alpha, not the intermediate
-        // color of a CSS transition. Keep the backdrop until it has settled.
-        this._opaqueUntil = GLib.get_monotonic_time() +
-            (box.get_theme_node().get_transition_duration() + 50) * 1000;
         this._syncVisibility();
         this._syncGeometry();
-        this._refreshWindowIntersections();
         this._queueRepaint();
     }
 
@@ -384,6 +415,25 @@ export class SoftSurface {
         this._guard.end();
         this._syncVisibility();
         this._queueRepaint();
+    }
+
+    _settleOpacityAt(deadline) {
+        this._opaqueUntil = deadline;
+        if (this._opaqueTimeout)
+            GLib.Source.remove(this._opaqueTimeout);
+        this._opaqueTimeout = 0;
+
+        // St reports target alpha. Recheck after the last tint frame even
+        // when the desktop stays idle and emits no further stage updates.
+        const opaque = this._panelTint ? this._panelAlpha === 1 : this._settings.get_int('opacity') === 100;
+        if (opaque) {
+            const delay = Math.max(1, Math.ceil((deadline - GLib.get_monotonic_time()) / 1000));
+            this._opaqueTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
+                this._opaqueTimeout = 0;
+                this._syncVisibility();
+                return GLib.SOURCE_REMOVE;
+            });
+        }
     }
 
     _syncVisibility() {
@@ -406,9 +456,8 @@ export class SoftSurface {
             this._panelCover.visible = blurVisible && this._panelCover.opacity > 0;
         }
         if (!blurVisible) {
-            for (const {signals} of this._windows.values())
-                signals.clear();
-            this._windows.clear();
+            this._stopWindowDamage?.();
+            this._stopWindowDamage = null;
             if (this._later)
                 global.compositor.get_laters().remove(this._later);
             this._later = 0;
@@ -417,9 +466,11 @@ export class SoftSurface {
             if (!wasVisible) {
                 this._effect.invalidate?.();
                 this._blurBounds = null;
-                for (const actor of global.get_window_actors())
-                    this._trackWindow(actor);
-                this._refreshWindowIntersections();
+                this._stopWindowDamage = windowDamage.subscribe(bounds => {
+                    if (!this._later && this._blur.mapped &&
+                        bounds.some(rect => boundsIntersect(rect, this._getBlurBounds())))
+                        this._repaint();
+                });
             }
             if (this._needsEffect)
                 this._replaceEffect();
@@ -430,7 +481,9 @@ export class SoftSurface {
         }
         // The group is a sibling, so account for its common parent's opacity.
         const parentOpacity = this._group.get_parent().get_paint_opacity();
-        const opacityActor = this._options.plain ? this.menu.box : this.menu.actor;
+        // Some menus animate the BoxPointer inside a permanently opaque root.
+        // Suppress the backdrop until that BoxPointer starts painting.
+        const opacityActor = this._options.plain ? this.menu.box : (this.menu._boxPointer ?? this.menu.actor);
         this._group.opacity = parentOpacity > 0
             ? Math.min(255, Math.round(255 * (this._dockFade ? 1 : fade) *
                 opacityActor.get_paint_opacity() / parentOpacity)) : 0;
@@ -466,7 +519,6 @@ export class SoftSurface {
         this._panelCover?.set_position(values[0], values[1]);
         this._panelCover?.set_size(values[2], values[3]);
         this._updateEffectCorners();
-        this._refreshWindowIntersections();
         // Geometry may change in before-paint, after BEFORE_REDRAW callbacks.
         // Invalidate the capture for this frame, including the first open frame.
         if (this._blur.mapped)
@@ -478,26 +530,15 @@ export class SoftSurface {
             return;
         this._later = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
             this._later = 0;
-            if (this._blur.mapped) {
-                this._blur.queue_redraw();
-                this._effect.queue_repaint();
-            }
+            if (this._blur.mapped)
+                this._repaint();
             return GLib.SOURCE_REMOVE;
         });
     }
 
-    _windowIntersectsBlur(actor) {
-        if (!actor.mapped)
-            return false;
-        // Use transformed actor bounds so translations/scaling are included.
-        // Include a conservative sampling margin, as on the dock.
-        const [x, y] = actor.get_transformed_position();
-        const [width, height] = actor.get_transformed_size();
-        const bounds = this._getBlurBounds();
-        if (![x, y, width, height, bounds.x, bounds.y, bounds.right, bounds.bottom].every(Number.isFinite))
-            return true;
-        return x < bounds.right && x + width > bounds.x &&
-            y < bounds.bottom && y + height > bounds.y;
+    _repaint() {
+        this._blur.queue_redraw();
+        this._effect.queue_repaint();
     }
 
     // Share stage bounds across window events; geometry/settings and frame
@@ -516,49 +557,6 @@ export class SoftSurface {
             };
         }
         return this._blurBounds;
-    }
-
-    _refreshWindowIntersections() {
-        this._blurBounds = null;
-        for (const [actor, record] of this._windows)
-            record.affected = this._windowIntersectsBlur(actor);
-    }
-
-    _untrackWindow(actor) {
-        const record = this._windows.get(actor);
-        if (!record)
-            return;
-        record.signals.clear();
-        this._windows.delete(actor);
-        if (record.affected)
-            this._queueRepaint();
-    }
-
-    _trackWindow(actor) {
-        if (!this._group.visible || !this._blur.visible || this._windows.has(actor) || !actor.get_meta_window)
-            return;
-        const signals = new Signals();
-        const record = {signals, affected: this._windowIntersectsBlur(actor)};
-        this._windows.set(actor, record);
-        const update = () => {
-            if (!this._group.visible)
-                return;
-            const affected = this._windowIntersectsBlur(actor);
-            // Moving away still invalidates the old footprint once.
-            if (affected || record.affected)
-                this._queueRepaint();
-            record.affected = affected;
-        };
-        const changes = ['notify::allocation', 'notify::visible', 'notify::mapped',
-            'notify::opacity', 'notify::translation-x', 'notify::translation-y',
-            'notify::scale-x', 'notify::scale-y'];
-        if (GObject.signal_lookup('damaged', actor))
-            changes.push('damaged');
-        for (const signal of changes)
-            signals.connect(actor, signal, update);
-        signals.connect(actor, 'destroy', () => this._untrackWindow(actor));
-        if (record.affected)
-            this._queueRepaint();
     }
 
     _trackChild(actor) {
@@ -586,7 +584,7 @@ export class SoftSurface {
                         this._readThemeCorners();
                         this._updateEffectCorners();
                     }
-                    this._opaqueUntil = this._styleUntil;
+                    this._settleOpacityAt(this._styleUntil);
                     this._syncVisibility();
                 }
                 this._queueRepaint();
@@ -618,14 +616,16 @@ export class SoftSurface {
         this._signals.clear();
         for (const signals of this._children.values())
             signals.clear();
-        for (const {signals} of this._windows.values())
-            signals.clear();
+        this._stopWindowDamage?.();
+        this._stopWindowDamage = null;
         this._children.clear();
-        this._windows.clear();
         if (this._later)
             global.compositor.get_laters().remove(this._later);
         this._later = 0;
         this._guard.end();
+        if (this._opaqueTimeout)
+            GLib.Source.remove(this._opaqueTimeout);
+        this._opaqueTimeout = 0;
         this._group?.destroy();
         this._group = null;
         this._blur = null;

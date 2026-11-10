@@ -97,7 +97,7 @@ def test_panel_policy(evaluate, check, screenshot, results):
         evaluate('policyWindow.maximize();')
         wait('policyPanel()._panelPolicy.opaque')
         settle()
-        check('panel-policy-dark-maximized-opaque', 'policyPanel()._panelTint.get_theme_node().get_background_color().alpha===255 && !policyPanel()._blur.mapped && policyPanel()._windows.size===0')
+        check('panel-policy-dark-maximized-opaque', 'policyPanel()._panelTint.get_theme_node().get_background_color().alpha===255 && !policyPanel()._blur.mapped && !policyPanel()._stopWindowDamage')
         check('panel-color-dark-maximized-native', 'policyColorIs(...nativeDarkPanelColor,255)')
         screenshot('panel-policy-dark-maximized')
         evaluate('policyInterface.set_string("color-scheme","prefer-light");')

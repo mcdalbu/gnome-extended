@@ -51,6 +51,8 @@ export class DockSurfaces {
         this._signals = new Signals();
         this._records = new Map();
         this._scanLater = 0;
+        this._pendingRoots = new Set();
+        this._fullScan = false;
         this._stopped = false;
     }
 
@@ -59,32 +61,43 @@ export class DockSurfaces {
         if (GObject.signal_lookup('shutdown', global))
             this._signals.connect(global, 'shutdown', () => this._stopDiscovery());
         const added = GObject.signal_lookup('child-added', Main.uiGroup) ? 'child-added' : 'actor-added';
-        this._signals.connect(Main.uiGroup, added, () => this._queueScan());
+        this._signals.connect(Main.uiGroup, added, (_group, actor) => this._queueScan(actor));
         this._signals.connect(Main.extensionManager, 'extension-state-changed', () => this._queueScan());
         this._signals.connect(Main.layoutManager, 'monitors-changed', () => this._queueScan());
         this._signals.connect(Main.layoutManager.overviewGroup, 'notify::visible', () => this.sync());
         this._scan();
     }
 
-    _queueScan() {
-        if (this._stopped || this._scanLater)
+    _queueScan(actor = null) {
+        if (this._stopped)
+            return;
+        if (actor)
+            this._pendingRoots.add(actor);
+        else
+            this._fullScan = true;
+        if (this._scanLater)
             return;
         this._scanLater = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
             this._scanLater = 0;
-            this._scan();
+            const roots = this._fullScan ? null : this._pendingRoots;
+            this._pendingRoots = new Set();
+            this._fullScan = false;
+            this._scan(roots);
             return false;
         });
     }
 
-    _scan() {
+    _scan(roots = null) {
         if (this._stopped)
             return;
         const visit = (actor, depth) => {
             // Never claim the stock overview dash or a panel container.
             if (actor === Main.layoutManager.overviewGroup || actor === Main.layoutManager.panelBox)
                 return;
-            if (isDockRoot(actor)) {
+            if (this._records.has(actor) || isDockRoot(actor)) {
                 this._watch(actor);
+                if (roots)
+                    this._refresh(this._records.get(actor));
                 return;
             }
             // Some forks wrap their dock in an additional layout container.
@@ -93,9 +106,13 @@ export class DockSurfaces {
                     visit(child, depth + 1);
             }
         };
-        for (const child of Main.uiGroup.get_children())
-            visit(child, 0);
-        this.sync();
+        const children = Main.uiGroup.get_children();
+        for (const actor of roots ?? children) {
+            if (!roots || children.includes(actor) || this._records.has(actor))
+                visit(actor, 0);
+        }
+        if (!roots)
+            this.sync();
     }
 
     _watch(actor) {
@@ -107,7 +124,7 @@ export class DockSurfaces {
         record.signals.connect(actor, 'notify::mapped', () => this._refresh(record));
         // Constructors may add the root before their dash/background exists.
         const added = GObject.signal_lookup('child-added', actor) ? 'child-added' : 'actor-added';
-        record.signals.connect(actor, added, () => this._queueScan());
+        record.signals.connect(actor, added, () => this._queueScan(actor));
         actor.add_style_class_name('gnome-extended-dock');
     }
 
@@ -132,7 +149,7 @@ export class DockSurfaces {
                     record.surface?.destroy(true);
                     record.surface = null;
                     record.box = null;
-                    this._queueScan();
+                    this._queueScan(record.actor);
                 });
             }
             record.box = box;
@@ -143,17 +160,21 @@ export class DockSurfaces {
             const menu = new DockMenu(record.actor, box);
             record.surface = new SoftSurface(menu, this._settings, 'dock', () => {
                 record.surface = null;
-                this._queueScan();
+                this._queueScan(record.actor);
             }, {plain: true, dock: true, anchor: record.actor,
                 blurEnabled: () => this._settings.get_boolean('docks'),
-                onFadeComplete: () => this._queueScan(),
+                onFadeComplete: () => this._queueScan(record.actor),
                 transparent: () => this._isOverviewTransparent()});
         }
     }
 
-    sync() {
+    sync(effectOnly = false) {
         for (const record of this._records.values()) {
             const previous = record.surface;
+            if (effectOnly) {
+                previous?.update(true);
+                continue;
+            }
             this._refresh(record);
             if (previous && previous === record.surface)
                 previous.update();
@@ -165,6 +186,7 @@ export class DockSurfaces {
         if (!record)
             return;
         this._records.delete(actor);
+        this._pendingRoots.delete(actor);
         record.signals.clear();
         record.boxSignals.clear();
         record.surface?.destroy(destroyed);
@@ -174,6 +196,7 @@ export class DockSurfaces {
 
     _stopDiscovery() {
         this._stopped = true;
+        this._pendingRoots.clear();
         if (this._scanLater)
             global.compositor.get_laters().remove(this._scanLater);
         this._scanLater = 0;

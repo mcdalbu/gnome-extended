@@ -28,9 +28,9 @@ As preferências estão organizadas em seis abas:
   **dock** e **alternador de aplicativos (Alt+Tab)**; intensidade, deslocamentos
   e desfoque da sombra são compartilhados.
 
-As preferências do App Grid Extended foram integradas. Seu schema e caminho
-original permanecem para conservar os valores existentes. Desative o App Grid
-independente para evitar duplicação. A preferência global antiga de sombra é
+A aba **Ícones** reúne os controles de sombra da grade, das pastas, do dock e
+do Alt+Tab. As configurações salvas pelo antigo App Grid Extended são
+reutilizadas pelo GNOME Extended. A preferência global antiga de sombra é
 migrada para os três switches sem sobrescrever escolhas novas.
 
 ## Instalação
@@ -38,7 +38,7 @@ migrada para os três switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v24.zip
+gnome-extensions install --force gnome-extended@local_v25.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua
@@ -55,7 +55,8 @@ Sem biblioteca compatível, a extensão usa `Shell.BlurEffect` na frequência in
 Half-rate e quarter-rate exigem um backend que exponha a propriedade `frame-divisor`,
 como o pacote local `1.0.2-4.local`. Esse recurso não é presumido em qualquer
 build do projeto de origem. O RPM opcional é específico para Fedora 45 x86_64 /
-Mutter 51; o SRPM correspondente acompanha o binário na release.
+Mutter 51. O [RPM e o SRPM da versão 4.local](https://github.com/mcdalbu/gnome-extended/releases/tag/v24)
+continuam compatíveis com a extensão.
 
 O monitor e os controles continuam na frequência normal: só a captura/desfoque
 é limitada. Mudanças no raio do blur/geometria e reabertura invalidam o cache.
@@ -100,9 +101,10 @@ O menu da borda da janela, desenhado pelo Shell, usa **Elementos → Menus conte
 
 Os fundos são estilizados em blocos identificados de `~/.config/gtk-4.0/gtk.css`;
 as demais regras pessoais são preservadas. Reabra os aplicativos após mudar o
-estilo. Desativar um switch remove seu bloco. O estilo GTK persiste ao desligar
-somente a extensão; o blur depende dela. Para restaurar o fundo opaco, desative o
-switch correspondente nas preferências e reabra o aplicativo.
+estilo. Com a extensão ativa, desativar um switch remove seu bloco. O estilo GTK
+persiste ao desligar a extensão. Alterações feitas nas preferências enquanto ela
+está desligada são aplicadas ao ativá-la novamente. Para restaurar o fundo opaco,
+desative o switch correspondente com a extensão ativa e reabra o aplicativo.
 
 O perfil da lateral foi validado no Nautilus 51.1 / libadwaita 1.10. Os menus
 compatíveis são `GtkPopoverMenu` em GTK 4 moderno (CSS com variáveis e `color-mix`).
@@ -119,8 +121,9 @@ captura intermediária que poderia alterar a imagem desfocada.
 Na aba **Janelas**, ative **Ptyxis: apenas a área do terminal**. A opção inclui
 transparência do fundo e blur, sem depender do switch geral de blur das janelas.
 A barra de título e os textos permanecem opacos. Opacidade, intensidade, brilho e
-frequência seguem a aba **Blur**. A opacidade nativa dos perfis muda imediatamente,
-inclusive nos terminais já abertos; novos perfis também são acompanhados.
+frequência seguem a aba **Blur**. A opacidade é aplicada aos perfis após uma
+breve pausa no ajuste, inclusive nos terminais já abertos. Novos perfis também
+são acompanhados.
 
 A integração usa os schemas do Ptyxis instalado no sistema e modifica apenas
 `opacity` dos perfis. Os valores anteriores, incluindo valores não definidos,
@@ -137,6 +140,8 @@ Ative **Janelas → Configurações: apenas a barra lateral**. A aparência usa 
 valores gerais de **Blur**, como no Arquivos; ative também o blur atrás das
 janelas para desfocar a cena. Textos, ícones e área de conteúdo permanecem opacos.
 Feche o Configurações e reabra pelo lançador de aplicativos para aplicar o estilo.
+A opção da barra lateral do Configurações requer o utilitário `gresource`,
+fornecido pelo pacote `glib2-devel` no Fedora.
 
 O Configurações não fornece uma classe CSS própria no topo da janela. Para
 limitar o estilo a ele, a integração adiciona uma classe ao template extraído do

@@ -21,6 +21,7 @@ export class ShellBackgrounds {
         this._overviewManagers = [];
         this._overviewEffects = [];
         this._locks = new Map();
+        this._appearance = new WeakMap();
         this._dialogs = new WeakSet();
         this._lockGroups = new WeakSet();
     }
@@ -49,8 +50,13 @@ export class ShellBackgrounds {
 
     _updateEffect(effect) {
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-        applyBlurParameters(effect, radiusProperty, this._settings.get_int('blur-radius'),
-            scale, this._settings.get_int('brightness'));
+        const radius = this._settings.get_int('blur-radius');
+        const brightness = this._settings.get_int('brightness');
+        const appearance = `${radius}:${scale}:${brightness}`;
+        if (this._appearance.get(effect) === appearance)
+            return;
+        applyBlurParameters(effect, radiusProperty, radius, scale, brightness);
+        this._appearance.set(effect, appearance);
     }
 
     _syncOverview() {

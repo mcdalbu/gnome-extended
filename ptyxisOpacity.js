@@ -12,23 +12,23 @@ function ptyxisSchemas() {
 
 // Persist originals before changing profiles, so disabling after a logout or
 // crash can still restore both explicit values and the original unset default.
-export function syncPtyxisOpacity(settings) {
+export function syncPtyxisOpacity(settings, rootSettings) {
     try {
-        return applyPtyxisOpacity(settings);
+        return applyPtyxisOpacity(settings, rootSettings);
     } catch (error) {
-        // Preferences and Shell may observe the same change at once. Re-read
-        // the persisted originals after losing the file's optimistic lock.
+        // Re-read persisted originals if another process updated the backup
+        // between loading and replacing it.
         if (error.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.WRONG_ETAG))
-            return applyPtyxisOpacity(settings);
+            return applyPtyxisOpacity(settings, rootSettings);
         throw error;
     }
 }
 
-function applyPtyxisOpacity(settings) {
+function applyPtyxisOpacity(settings, rootSettings) {
     const schemas = ptyxisSchemas();
     if (!schemas)
         return false;
-    const root = new Gio.Settings({settings_schema: schemas.root});
+    const root = rootSettings ?? new Gio.Settings({settings_schema: schemas.root});
     const directory = GLib.build_filenamev([GLib.get_user_config_dir(), 'gnome-extended']);
     const file = Gio.File.new_for_path(GLib.build_filenamev([directory, 'ptyxis-opacity.json']));
     let original = '';
@@ -57,6 +57,7 @@ function applyPtyxisOpacity(settings) {
         original = result;
         etag = newEtag;
     };
+    let changed = false;
     if (settings.get_boolean('windows-ptyxis')) {
         const opacity = settings.get_int('opacity') / 100;
         const uuids = new Set([...root.get_strv('profile-uuids'), root.get_string('default-profile-uuid')]);
@@ -83,8 +84,11 @@ function applyPtyxisOpacity(settings) {
         if (profiles.length || original)
             write();
         for (const source of profiles) {
-            if (Math.abs(source.get_double('opacity') - opacity) > 0.000001 && !source.set_double('opacity', opacity))
+            if (Math.abs(source.get_double('opacity') - opacity) <= 0.000001)
+                continue;
+            if (!source.set_double('opacity', opacity))
                 throw new Error('Não foi possível aplicar a opacidade do Ptyxis.');
+            changed = true;
         }
     } else if (Object.keys(backup.profiles).length) {
         for (const [uuid, record] of Object.entries(backup.profiles)) {
@@ -94,19 +98,26 @@ function applyPtyxisOpacity(settings) {
                 throw new Error('Backup de perfil do Ptyxis inválido; o arquivo foi preservado.');
             const source = profile(uuid);
             // Preserve a manual change made outside this integration.
-            if (record.applied.some(value => Math.abs(source.get_double('opacity') - value) < 0.000001)) {
+            const current = source.get_double('opacity');
+            if (record.applied.some(value => Math.abs(current - value) < 0.000001)) {
                 if (!source.is_writable('opacity'))
                     throw new Error('Não foi possível restaurar um perfil bloqueado do Ptyxis.');
                 if (record.value === null)
                     source.reset('opacity');
                 else if (!source.set_double('opacity', record.value))
                     throw new Error('Não foi possível restaurar a opacidade anterior do Ptyxis.');
+                changed = true;
             }
         }
+        // Keep the recovery record until the restored values reach dconf.
+        if (changed)
+            Gio.Settings.sync();
+        changed = false;
         backup.profiles = {};
         write();
     }
-    Gio.Settings.sync();
+    if (changed)
+        Gio.Settings.sync();
     return true;
 }
 
@@ -120,7 +131,7 @@ export class PtyxisOpacity {
         const schemas = ptyxisSchemas();
         if (schemas) {
             this._root = new Gio.Settings({settings_schema: schemas.root});
-            for (const key of ['profile-uuids', 'default-profile-uuid'])
+            for (const key of ['profile-uuids', 'default-profile-uuid']) {
                 this._signals.connect(this._root, `changed::${key}`, () => {
                     try {
                         this.sync();
@@ -128,6 +139,8 @@ export class PtyxisOpacity {
                         logError(error, 'GNOME Extended: perfis do Ptyxis');
                     }
                 });
+                this._root.get_value(key);
+            }
         }
         try {
             this.sync();
@@ -141,7 +154,7 @@ export class PtyxisOpacity {
             return;
         this._syncing = true;
         try {
-            return syncPtyxisOpacity(this._settings);
+            return syncPtyxisOpacity(this._settings, this._root);
         } finally {
             this._syncing = false;
         }

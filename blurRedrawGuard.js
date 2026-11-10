@@ -19,20 +19,13 @@ export class BlurRedrawGuard {
         this._flag = clutter.DrawDebugFlag.DISABLE_CLIPPED_REDRAWS;
     }
 
-    begin(actor, view) {
+    begin(actor, view, source = actor) {
         this.end();
         if (!actor?.mapped || actor.get_paint_opacity() === 0)
             return;
-        if (view) {
-            // Use the boxed property: get_layout() requires a caller-allocated
-            // rectangle in GJS, with a different namespace on older Shells.
-            const rect = view.layout;
-            const [x, y] = actor.get_transformed_position();
-            const [width, height] = actor.get_transformed_size();
-            if (width <= 0 || height <= 0 || x >= rect.x + rect.width ||
-                x + width <= rect.x || y >= rect.y + rect.height || y + height <= rect.y)
-                return;
-        }
+        if (view && !this._intersects(actor, view.layout) &&
+            (source === actor || !this._intersects(source, view.layout)))
+            return;
         if (owners.size === 0) {
             const [, drawFlags] = this._api.get();
             changedFlags = (drawFlags & this._flag) === 0;
@@ -40,6 +33,14 @@ export class BlurRedrawGuard {
                 this._api.add(this._flag);
         }
         owners.add(this);
+    }
+
+    _intersects(actor, rect) {
+        // Use the boxed view layout for compatibility with older Shells.
+        const [x, y] = actor.get_transformed_position();
+        const [width, height] = actor.get_transformed_size();
+        return width > 0 && height > 0 && x < rect.x + rect.width &&
+            x + width > rect.x && y < rect.y + rect.height && y + height > rect.y;
     }
 
     end() {

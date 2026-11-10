@@ -193,19 +193,23 @@ def test():
             evaluate(f'globalThis.surface = soft._surfaces.get("{key}"); '
                      'globalThis.openFrames = []; '
                      'globalThis.openFrameId = global.stage.connect("before-paint", () => { '
-                     'if (!surface.menu.isOpen || !surface.menu.box.mapped || '
-                     'surface.menu.actor.get_paint_opacity() === 0) return; '
+                     'if (!surface.menu.isOpen || !surface.menu.box.mapped) return; '
+                     'const sourceOpacity=(surface.menu._boxPointer ?? surface.menu.actor).get_paint_opacity(); '
                      'const a=[...surface.menu.box.get_transformed_position(),...surface.menu.box.get_transformed_size()]; '
                      'const b=[...surface._blur.get_transformed_position(),...surface._blur.get_transformed_size()]; '
-                     'openFrames.push({mapped:surface._blur.mapped, '
+                     'openFrames.push({mapped:surface._blur.mapped, sourceOpacity, '
                      'aligned:a.every((v,i)=>Math.abs(v-b[i])<1), opacity:surface._group.opacity}); '
                      '}); surface.menu.open();')
             time.sleep(0.6)
             evaluate('global.stage.disconnect(openFrameId);')
             results[f'{key}-opening-frames'] = evaluate('openFrames')
-            assert results[f'{key}-opening-frames'], 'No opening frames observed'
-            assert all(frame['mapped'] and frame['aligned']
-                       for frame in results[f'{key}-opening-frames']), 'Blur missed an opening frame'
+            opening_frames = results[f'{key}-opening-frames']
+            visible_frames = [frame for frame in opening_frames if frame['sourceOpacity'] > 0]
+            assert visible_frames, 'No visible opening frames observed'
+            assert all(frame['mapped'] and frame['aligned'] and frame['opacity'] > 0
+                       for frame in visible_frames), 'Blur missed a visible opening frame'
+            assert all(frame['opacity'] == 0 for frame in opening_frames if frame['sourceOpacity'] == 0), (
+                'Blur appeared before the menu')
             check(f'{key}-mapped', 'surface._blur.mapped && surface._blur.width > 100 && surface._blur.height > 100')
             check(f'{key}-geometry', '''(() => {
                 const [x,y] = surface.menu.box.get_transformed_position();
@@ -243,7 +247,7 @@ def test():
             evaluate('globalThis.previousEffect = surface._effect; surface.menu.close();')
             time.sleep(0.4)
             check(f'{key}-hidden', '!surface._group.visible && !surface._blur.mapped')
-            check(f'{key}-hidden-no-window-signals', 'surface._windows.size === 0')
+            check(f'{key}-hidden-no-window-signals', '!surface._stopWindowDamage')
             evaluate('surface.menu.open();')
             time.sleep(0.4)
             check(f'{key}-effect-reused', 'surface._effect === previousEffect')
@@ -326,38 +330,36 @@ def test():
         if results['idle-frames-open'] > 2:
             raise AssertionError('Blur drives idle repaints')
 
-        # Window events outside the backdrop must not invalidate its capture.
-        # A real Clutter actor exercises transformed geometry and GObject signals.
+        # An actor in the window group exercises the shared observer with
+        # Clutter transforms, including the old footprint when it moves away.
         evaluate('''(() => {
             globalThis.probeWindow = new imports.gi.St.Widget({x:2000, y:100, width:120, height:120});
             probeWindow.get_meta_window = () => null;
-            Main.uiGroup.insert_child_below(probeWindow, surface._group);
-            surface._trackWindow(probeWindow);
+            global.window_group.add_child(probeWindow);
+            const repaint = surface._repaint;
+            globalThis.probeRepaints = 0;
+            surface._repaint = function () { probeRepaints++; return repaint.call(this); };
         })()''')
         time.sleep(0.3)
-        check('distant-window-no-repaint', 'probeWindow.translation_x = 20; surface._later === 0')
-        check('damage-burst-shares-bounds', """(() => {
-            surface._blurBounds = null;
-            const first = surface._getBlurBounds();
-            for (let i=0; i<20; i++) surface._windowIntersectsBlur(probeWindow);
-            return surface._getBlurBounds() === first;
-        })()""")
-        check('geometry-invalidates-bounds', """(() => {
-            const previous = surface._getBlurBounds();
-            surface._syncGeometry();
-            return surface._getBlurBounds() !== previous;
-        })()""")
-        check('window-entering-repaints', '''(() => {
-            const [x,y] = surface._blur.get_transformed_position();
+        evaluate('''globalThis.probeReads = 0; probeRepaints = 0;
+            const position = probeWindow.get_transformed_position;
+            probeWindow.get_transformed_position = function () { probeReads++; return position.call(this); };
+            for (let i=1; i<=20; i++) probeWindow.translation_x = i;''')
+        time.sleep(0.2)
+        check('distant-window-no-repaint', 'probeRepaints === 0')
+        check('damage-burst-shares-bounds', 'probeReads === 1')
+        evaluate('''const [x,y] = surface._blur.get_transformed_position();
             probeWindow.translation_x = x - probeWindow.x;
-            probeWindow.translation_y = y - probeWindow.y;
-            return surface._later !== 0;
-        })()''')
-        time.sleep(0.3)
-        check('window-leaving-repaints', 'probeWindow.translation_x = 2000; surface._later !== 0')
-        time.sleep(0.3)
-        check('distant-window-removal-no-repaint', 'probeWindow.destroy(); surface._later === 0 && '
-              '!surface._windows.has(probeWindow)')
+            probeWindow.translation_y = y - probeWindow.y;''')
+        time.sleep(0.2)
+        check('window-entering-repaints', 'probeRepaints > 0')
+        evaluate('probeRepaints = 0; probeWindow.translation_x = 2000')
+        time.sleep(0.2)
+        check('window-leaving-repaints', 'probeRepaints > 0')
+        evaluate('probeRepaints = 0; probeWindow.destroy()')
+        time.sleep(0.2)
+        check('distant-window-removal-no-repaint', 'probeRepaints === 0')
+        evaluate('delete surface._repaint')
 
         # Native Shell.BlurEffect lacks rounded clipping, so use square corners
         # there: culling must never remove blur still visible around the fill.
@@ -369,7 +371,7 @@ def test():
         evaluate('global.stage.queue_redraw();')
         time.sleep(0.2)
         check('opaque-blur-hidden', '!surface._group.visible && !surface._blur.mapped && surface._later === 0')
-        check('opaque-no-window-signals', 'surface._windows.size === 0')
+        check('opaque-no-window-signals', '!surface._stopWindowDamage')
         # Compare the actual menu pixels with and without the covered effect.
         evaluate('surface._opaqueUntil=GLib.get_monotonic_time()+5000000; '
                  'surface._syncVisibility(); surface._queueRepaint();')

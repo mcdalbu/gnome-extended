@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 import {migrateShadowSettings} from './shadowSettings.js';
 
@@ -11,14 +12,24 @@ export class AppGrid {
     start() {
         migrateShadowSettings(this._settings);
         this._context = St.ThemeContext.get_for_stage(global.stage);
-        this._settingsId = this._settings.connect('changed', () => this._sync());
-        this._themeId = this._context.connect('changed', () => this._sync());
+        this._settingsId = this._settings.connect('changed', () => this._queueSync());
+        this._themeId = this._context.connect('changed', () => this._queueSync());
         try {
             this._sync();
         } catch (error) {
             this.destroy();
             throw error;
         }
+    }
+
+    _queueSync() {
+        if (this._updating || this._syncId)
+            return;
+        this._syncId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._syncId = 0;
+            this._sync();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _unloadStylesheet() {
@@ -54,13 +65,14 @@ export class AppGrid {
         this._updating = true;
         try {
             if (!this._file) {
-                const [file, stream] = Gio.File.new_tmp('app-grid-extended-shadow-XXXXXX');
+                const [file, stream] = Gio.File.new_tmp('gnome-extended-icon-shadow-XXXXXX');
                 this._file = file;
                 stream.close(null);
             }
             this._unloadStylesheet();
-            this._file.replace_contents(css, null, false,
-                Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+            if (this._css !== css)
+                this._file.replace_contents(css, null, false,
+                    Gio.FileCreateFlags.REPLACE_DESTINATION, null);
             theme.load_stylesheet(this._file);
             this._css = css;
             this._theme = theme;
@@ -70,6 +82,10 @@ export class AppGrid {
     }
 
     destroy() {
+        if (this._syncId) {
+            GLib.Source.remove(this._syncId);
+            this._syncId = 0;
+        }
         if (this._settingsId)
             this._settings.disconnect(this._settingsId);
         if (this._themeId)

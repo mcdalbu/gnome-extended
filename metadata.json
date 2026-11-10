@@ -12,9 +12,9 @@
     "50",
     "51"
   ],
-  "version": 24,
+  "version": 25,
   "settings-schema": "org.gnome.shell.extensions.gnome-extended",
-  "version-name": "24",
+  "version-name": "25",
   "session-modes": [
     "user",
     "unlock-dialog"

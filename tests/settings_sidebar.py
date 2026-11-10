@@ -50,6 +50,7 @@ def test_settings_sidebar(evaluate, check, screenshot, results):
         results['settings-corner-pixel-errors']=errors
         assert max(errors)<=1,'Blur must remain inside rounded Settings corners'
         evaluate('soft._settings.set_boolean("windows-blur",true);soft._settings.set_int("opacity",71)')
+        time.sleep(.2)
         assert (config/'gtk.css').read_text().count('71%')==2,'Settings must follow the general opacity'
         evaluate('soft._settings.set_int("opacity",45)')
         time.sleep(.2)
@@ -87,3 +88,19 @@ def test_settings_sidebar(evaluate, check, screenshot, results):
         service.unlink()
         time.sleep(.8)
         results['settings-launcher-restoration']=True
+        launcher_state = Path(os.environ['XDG_CONFIG_HOME']) / 'gnome-extended/settings-launcher.json'
+        previous = launcher_state.read_bytes() if launcher_state.exists() else None
+        launcher_state.write_text('invalid test data')
+        try:
+            evaluate('soft._settings.set_boolean("windows-settings-sidebar",true)')
+            assert 'BEGIN GNOME Extended: Settings sidebar' in (config/'gtk.css').read_text()
+            assert not service.exists(), 'Invalid launcher state must preserve the current launcher'
+            assert launcher_state.read_text() == 'invalid test data'
+            evaluate('soft._settings.set_boolean("windows-settings-sidebar",false)')
+            assert (config/'gtk.css').read_text().strip() == original.strip()
+            results['gtk-style-independent-of-launcher-error'] = True
+        finally:
+            if previous is None:
+                launcher_state.unlink()
+            else:
+                launcher_state.write_bytes(previous)

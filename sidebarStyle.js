@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import {syncSettingsLauncher} from './settingsLauncher.js';
 
 const BEGIN = '/* BEGIN GNOME Extended: Nautilus sidebar */';
 const END = '/* END GNOME Extended: Nautilus sidebar */';
@@ -93,7 +92,6 @@ export function updateMenuBlock(original, enabled, opacity) {
 }
 
 export function saveSidebarStyle(settings) {
-    syncSettingsLauncher(settings);
     const directory = GLib.build_filenamev([GLib.get_user_config_dir(), 'gtk-4.0']);
     const file = Gio.File.new_for_path(GLib.build_filenamev([directory, 'gtk.css']));
     let original = '';

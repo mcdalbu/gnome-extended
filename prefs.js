@@ -2,8 +2,6 @@
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
-import {PtyxisOpacity} from './ptyxisOpacity.js';
-import {saveSidebarStyle} from './sidebarStyle.js';
 import {migrateShadowSettings} from './shadowSettings.js';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -66,28 +64,8 @@ export default class GnomeExtendedPreferences extends ExtensionPreferences {
             'Transparência no fundo e blur, preservando o texto. Inclui o menu de botão direito do Arquivos.');
         toggle(sidebar, settings, 'windows-ptyxis', 'Ptyxis: apenas a área do terminal',
             'Transparência e blur no fundo do terminal. A barra de título permanece opaca; usa os valores gerais da aba Blur. Ao desativar, restaura a opacidade anterior dos perfis.');
-        const ptyxisOpacity = new PtyxisOpacity(settings);
-        const sidebarStatus = new Adw.ActionRow({title: 'Aplicação do estilo',
-            subtitle: 'Reabra os aplicativos após alterar o estilo. Aplicativos com menus próprios, como Electron, não são estilizados.'});
-        sidebar.add(sidebarStatus);
-        const syncSidebarStyle = () => {
-            try {
-                saveSidebarStyle(settings);
-                const hasPtyxis = ptyxisOpacity.sync();
-                sidebarStatus.subtitle = settings.get_boolean('windows-ptyxis') && !hasPtyxis ? 'Ptyxis não está instalado ou seu schema de opacidade não está disponível.' : 'Reabra os aplicativos após alterar o estilo. Aplicativos com menus próprios, como Electron, não são estilizados.';
-            } catch (error) {
-                sidebarStatus.subtitle = `Não foi possível aplicar o estilo: ${error.message}`;
-            }
-        };
-        const sidebarSignals = ['windows-nautilus-sidebar', 'windows-settings-sidebar', 'windows-app-menus', 'windows-ptyxis', 'opacity'].map(key =>
-            settings.connect(`changed::${key}`, syncSidebarStyle));
-        window.connect('close-request', () => {
-            for (const id of sidebarSignals)
-                settings.disconnect(id);
-            ptyxisOpacity.destroy();
-            return false;
-        });
-        syncSidebarStyle();
+        sidebar.add(new Adw.ActionRow({title: 'Aplicação do estilo',
+            subtitle: 'A extensão aplica os ajustes enquanto está ativa. Reabra o Arquivos e o Configurações pelo lançador após alterar a opacidade do fundo. No Fedora, o Configurações requer gresource (glib2-devel).'}));
         const windows = group(windowsPage, 'Blur das janelas e menus',
             'O conteúdo do aplicativo permanece opaco. O blur aparece atrás dos elementos transparentes compatíveis.');
         toggle(windows, settings, 'windows-blur', 'Ativar blur atrás das janelas',
@@ -127,7 +105,7 @@ export default class GnomeExtendedPreferences extends ExtensionPreferences {
         const blur = group(blurPage, 'Aparência do blur',
             'Valores compartilhados por todas as superfícies habilitadas. Os cantos seguem o tema de cada elemento.');
         for (const args of [
-            ['blur-radius', 'Intensidade do desfoque', 'Pixels lógicos.', 1, 100],
+            ['blur-radius', 'Intensidade do desfoque', 'Pixels lógicos. Zero desativa o desfoque.', 0, 100],
             ['opacity', 'Opacidade do fundo (%)', '100% cobre o blur com um fundo opaco.', 0, 100],
             ['brightness', 'Brilho do desfoque (%)', 'Luminosidade da imagem atrás da superfície.', 10, 100],
         ])

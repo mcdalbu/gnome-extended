@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import Clutter from 'gi://Clutter';
+import Cogl from 'gi://Cogl';
+import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
@@ -10,12 +12,20 @@ import {BlurRedrawGuard} from './blurRedrawGuard.js';
 import {FrameSignals} from './frameSignals.js';
 import {RoundedClip} from './roundedClip.js';
 import {Signals} from './signals.js';
+import {boundsIntersect, windowDamage} from './windowDamage.js';
 
 const Backend = await loadBlurBackend(Shell, GObject);
 const menuTypes = [Meta.WindowType.DROPDOWN_MENU, Meta.WindowType.POPUP_MENU,
     Meta.WindowType.MENU, Meta.WindowType.COMBO];
 const radiusProperty = Backend.BlurEffect.list_properties().some(p => p.name === 'radius')
     ? 'radius' : 'sigma';
+
+const normalTypes = [Meta.WindowType.NORMAL, Meta.WindowType.DIALOG, Meta.WindowType.MODAL_DIALOG];
+
+function isPtyxis(window) {
+    return window.get_gtk_application_id() === 'org.gnome.Ptyxis' ||
+        window.get_wm_class()?.startsWith('org.gnome.Ptyxis');
+}
 
 // A sibling backdrop samples only the windows below this one. Blurring the
 // window actor itself would also blur its text and controls.
@@ -25,118 +35,301 @@ export class WindowSurfaces {
         this._signals = new Signals();
         this._frames = new FrameSignals();
         this._windows = new Map();
+        this._identities = new Map();
+        this._stopWindowDamage = null;
+        this._visible = new Set();
+        this._dirty = new Set();
+        this._damage = new Set();
+        this._exposed = [];
+        this._later = 0;
+        this._restacked = false;
+        this._stackPending = false;
+        this._stack = new Map();
     }
 
     start() {
         this._signals.connect(global.display, 'window-created', (_display, window) => {
             const actor = window.get_compositor_private();
             if (actor)
-                this._track(actor);
+                this._consider(actor);
         });
         for (const group of new Set([global.window_group, global.top_window_group])) {
             if (!group)
                 continue;
             const added = GObject.signal_lookup('child-added', group) ? 'child-added' : 'actor-added';
-            this._signals.connect(group, added, (_group, actor) => this._track(actor));
+            this._signals.connect(group, added, (_group, actor) => this._consider(actor));
         }
+        const refresh = () => {
+            if (this._windows.size) {
+                this._refreshAll();
+                this._queueUpdate();
+            }
+        };
         this._signals.connect(global.display, 'restacked', () => {
-            this._update();
-            this._invalidate();
-        });
-        this._signals.connect(Main.overview, 'showing', () => this._update());
-        this._signals.connect(Main.overview, 'hidden', () => this._update());
-        this._signals.connect(Main.sessionMode, 'updated', () => this._update());
-        this._signals.connect(global.workspace_manager, 'active-workspace-changed', () => this._update());
-        this._frames.connect(global.stage, 'before-update', (_stage, view) => {
-            this._update();
-            for (const state of this._windows.values()) {
-                if (state.blur?.visible)
-                    state.guard.begin(state.blur, view);
+            if (this._windows.size) {
+                this._stackPending = true;
+                this._queueUpdate();
             }
         });
+        this._signals.connect(Main.overview, 'showing', refresh);
+        this._signals.connect(Main.overview, 'hidden', refresh);
+        this._signals.connect(Main.sessionMode, 'updated', refresh);
+        this._signals.connect(global.workspace_manager, 'active-workspace-changed', refresh);
+        this._context = St.ThemeContext.get_for_stage(global.stage);
+        this._signals.connect(this._context, 'notify::scale-factor', () => this.sync());
+        this._frames.connect(global.stage, 'before-update', (_stage, view) => {
+            if (this._radius === 0 && this._brightness === 100)
+                return;
+            for (const state of this._visible)
+                state.guard.begin(state.blur, view);
+        });
         this._frames.connect(global.stage, 'after-update', () => {
-            for (const state of this._windows.values())
+            for (const state of this._visible)
                 state.guard.end();
         });
         this.sync();
     }
 
-    sync() {
-        if (!this._settings.get_boolean('windows-blur') &&
-            !this._settings.get_boolean('windows-app-menus') &&
-            !this._settings.get_boolean('windows-ptyxis')) {
+    sync(effectOnly = false) {
+        const settings = this._settings;
+        this._radius = settings.get_int('blur-radius');
+        this._scale = this._context.scale_factor;
+        this._brightness = settings.get_int('brightness');
+        this._rate = settings.get_int('blur-rate');
+        if (effectOnly) {
+            for (const state of this._visible)
+                this._applyEffect(state);
+            return;
+        }
+        this._blurWindows = settings.get_boolean('windows-blur');
+        this._blurMenus = settings.get_boolean('windows-app-menus');
+        this._blurPtyxis = settings.get_boolean('windows-ptyxis');
+        if (!this._blurWindows && !this._blurMenus && !this._blurPtyxis) {
             this._clear();
             return;
         }
-        for (const actor of global.get_window_actors())
-            this._track(actor);
-        this._update();
+        const actors = new Set([...global.get_window_actors(), ...this._windows.keys(), ...this._identities.keys()]);
+        for (const actor of actors)
+            this._consider(actor);
+        this._refreshAll();
+        this._flush();
     }
 
-    _track(actor) {
-        if (this._windows.has(actor) || !(actor instanceof Meta.WindowActor) ||
-            (!this._settings.get_boolean('windows-blur') &&
-             !this._settings.get_boolean('windows-app-menus') &&
-             !this._settings.get_boolean('windows-ptyxis')))
+    _consider(actor) {
+        if (!(actor instanceof Meta.WindowActor) ||
+            (!this._blurWindows && !this._blurMenus && !this._blurPtyxis))
             return;
         const window = actor.meta_window;
-        const menu = menuTypes.includes(window.get_window_type());
-        if (!menu && ![Meta.WindowType.NORMAL, Meta.WindowType.DIALOG,
-            Meta.WindowType.MODAL_DIALOG].includes(window.get_window_type()))
+        if (!window)
             return;
-        const state = {actor, window, menu, signals: new Signals(), guard: new BlurRedrawGuard(Clutter, Meta),
-            blur: null};
-        this._windows.set(actor, state);
-        state.signals.connect(actor, 'destroy', () => this._remove(actor));
-        for (const signal of ['notify::allocation', 'notify::visible', 'notify::mapped', 'notify::opacity',
-            'notify::translation-x', 'notify::translation-y', 'notify::scale-x', 'notify::scale-y'])
-            state.signals.connect(actor, signal, () => this._invalidate());
-        if (GObject.signal_lookup('damaged', actor))
-            state.signals.connect(actor, 'damaged', () => this._invalidate());
-        this._updateWindow(state);
-        this._invalidate();
+        const type = window.get_window_type();
+        const menu = menuTypes.includes(type);
+        const normal = normalTypes.includes(type);
+        const watchIdentity = this._blurPtyxis && !this._blurWindows && normal;
+        if (watchIdentity && !this._identities.has(actor)) {
+            // The GTK application ID can arrive after the compositor actor.
+            const signals = new Signals();
+            this._identities.set(actor, signals);
+            for (const signal of ['notify::gtk-application-id', 'notify::wm-class'])
+                signals.connect(window, signal, () => this._consider(actor));
+            signals.connect(actor, 'destroy', () => this._forgetIdentity(actor));
+        } else if (!watchIdentity) {
+            this._forgetIdentity(actor);
+        }
+
+        if (this._blurWindows || (this._blurMenus && menu) || (watchIdentity && isPtyxis(window))) {
+            if (!this._windows.has(actor))
+                this._track(actor, window, menu, normal);
+        } else {
+            this._remove(actor);
+        }
     }
 
-    _invalidate() {
-        // Invalidate on scene changes rather than every frame: static windows
-        // must not drive a continuous redraw loop.
-        for (const state of this._windows.values()) {
-            if (state.blur?.visible)
+    _forgetIdentity(actor) {
+        this._identities.get(actor)?.clear();
+        this._identities.delete(actor);
+    }
+
+    _track(actor, window, menu, normal) {
+        const state = {actor, window, menu, normal, signals: new Signals(),
+            guard: new BlurRedrawGuard(Clutter, Meta), blur: null};
+        this._windows.set(actor, state);
+        const refresh = () => {
+            this._dirty.add(state);
+            this._queueUpdate();
+        };
+        state.signals.connect(actor, 'destroy', () => this._remove(actor));
+        for (const signal of ['notify::allocation', 'notify::visible', 'notify::mapped', 'notify::opacity',
+            'notify::translation-x', 'notify::translation-y', 'notify::scale-x', 'notify::scale-y',
+            'parent-set', 'transitions-completed', 'first-frame', 'effects-completed'])
+            state.signals.connect(actor, signal, refresh);
+        for (const signal of ['position-changed', 'size-changed', 'notify::fullscreen', 'notify::minimized',
+            'notify::maximized-horizontally', 'notify::maximized-vertically'])
+            state.signals.connect(window, signal, refresh);
+        if (GObject.signal_lookup('damaged', actor)) {
+            state.signals.connect(actor, 'damaged', () => {
+                if (this._blurWindows) {
+                    this._damage.add(state);
+                    this._queueUpdate();
+                }
+            });
+        }
+        refresh();
+    }
+
+    _refreshAll() {
+        this._restacked = true;
+        for (const state of this._windows.values())
+            this._dirty.add(state);
+    }
+
+    _queueUpdate() {
+        if (!this._later)
+            this._later = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+                this._later = 0;
+                this._flush();
+                return GLib.SOURCE_REMOVE;
+            });
+    }
+
+    _updateStack(dirty, exposed, refreshAll) {
+        const stack = new Map();
+        for (const group of new Set([global.window_group, global.top_window_group])) {
+            if (!group)
+                continue;
+            let index = 0;
+            for (const actor of group.get_children()) {
+                if (actor instanceof Meta.WindowActor)
+                    stack.set(actor, {group, index: index++});
+            }
+        }
+        if (!refreshAll) {
+            for (const [actor, placement] of stack) {
+                const previous = this._stack.get(actor);
+                if (previous?.group === placement.group && previous.index === placement.index)
+                    continue;
+                const state = this._windows.get(actor);
+                if (state) {
+                    dirty.add(state);
+                } else {
+                    const bounds = windowDamage.boundsFor(actor);
+                    if (bounds)
+                        exposed.push(bounds);
+                }
+            }
+        }
+        this._stack = stack;
+    }
+
+    _flush() {
+        if (!this._dirty.size && !this._damage.size && !this._exposed.length &&
+            !this._restacked && !this._stackPending) {
+            this._syncDamageTracking();
+            return;
+        }
+        const dirty = this._dirty;
+        const damage = this._damage;
+        const exposed = this._exposed.splice(0);
+        const restacked = this._restacked;
+        if (restacked || this._stackPending)
+            this._updateStack(dirty, exposed, restacked);
+        this._stackPending = false;
+        this._dirty = new Set();
+        this._damage = new Set();
+        this._restacked = false;
+        const repaint = new Set();
+        for (const state of dirty) {
+            if (state.bounds)
+                exposed.push(state.bounds);
+            state.bounds = windowDamage.boundsFor(state.actor);
+            if (state.bounds)
+                exposed.push(state.bounds);
+            if (this._updateWindow(state))
+                repaint.add(state);
+        }
+        for (const state of damage) {
+            // A new client buffer can switch between RGB and RGBA without moving.
+            if (!state.menu && state.normal && !dirty.has(state)) {
+                const opaque = this._isOpaque(state);
+                if (opaque !== state.opaque && this._updateWindow(state, opaque))
+                    repaint.add(state);
+            }
+            if (state.bounds)
+                exposed.push(state.bounds);
+        }
+        this._repaintAffected(exposed, repaint, restacked);
+        this._syncDamageTracking();
+    }
+
+    _repaintAffected(exposed, repaint = null, restacked = false) {
+        for (const state of this._visible) {
+            if (restacked || repaint?.has(state)) {
+                state.effect.queue_repaint();
+                continue;
+            }
+            const margin = Math.max(64, 3 * this._radius) * this._scale *
+                Math.max(1, state.actor.scale_x, state.actor.scale_y);
+            if (state.blurBounds && exposed.some(bounds => boundsIntersect(bounds, state.blurBounds, margin)))
                 state.effect.queue_repaint();
         }
     }
 
-    _update() {
-        for (const state of this._windows.values())
-            this._updateWindow(state);
+    _syncDamageTracking() {
+        // With selective blur, unrelated windows only supply the backdrop.
+        // Subscribe to their changes while at least one backdrop is visible.
+        if (!this._blurWindows && this._visible.size)
+            this._stopWindowDamage ??= windowDamage.subscribe(bounds => this._repaintAffected(bounds));
+        else {
+            this._stopWindowDamage?.();
+            this._stopWindowDamage = null;
+        }
     }
 
-    _updateWindow(state) {
-        const {actor, window} = state;
-        // Keep a separate backdrop out of Shell’s window fade animations.
-        if (actor.get_transition('opacity')) {
-            state.blur?.hide();
-            state.guard.end();
+    _isOpaque({actor, window}) {
+        // X11 window shapes may expose the backdrop even with an RGB buffer.
+        // On Wayland, keep the backdrop when the root surface's format is unknown.
+        if (actor.opacity !== 255 || window.get_client_type() !== Meta.WindowClientType.WAYLAND)
+            return false;
+        const texture = actor.get_texture()?.get_texture?.();
+        const plane = texture?.is_simple?.() ? texture.get_plane(0) : texture;
+        const components = plane?.get_components?.();
+        return components !== undefined && components === Cogl.TextureComponents?.RGB;
+    }
+
+    _hide(state) {
+        this._visible.delete(state);
+        state.blur?.hide();
+        state.guard.end();
+        return false;
+    }
+
+    _applyEffect(state) {
+        const appearance = `${this._radius}:${this._scale}:${this._brightness}:${this._rate}`;
+        if (state.appearance === appearance)
             return;
-        }
+        applyBlurParameters(state.effect, radiusProperty, this._radius, this._scale, this._brightness);
+        applyBlurRate(state.effect, this._rate);
+        state.appearance = appearance;
+    }
+
+    _updateWindow(state, opaque = this._blurWindows && state.normal && this._isOpaque(state)) {
+        const {actor, window} = state;
+        state.opaque = opaque;
+        // Keep a separate backdrop out of Shell’s window fade animations.
+        if (actor.get_transition('opacity') || (!state.menu && !state.normal))
+            return this._hide(state);
         // Restore normal rendering in overview, lock screen and fullscreen.
         const active = !Main.overview.visible && !Main.sessionMode.isLocked &&
             Main.sessionMode.currentMode === 'user' && !window.is_fullscreen();
         const parent = actor.get_parent();
-        const ptyxis = window.get_gtk_application_id() === 'org.gnome.Ptyxis' ||
-            window.get_wm_class()?.startsWith('org.gnome.Ptyxis');
-        const enabled = active && (state.menu ? this._settings.get_boolean('windows-app-menus')
-            : (ptyxis && this._settings.get_boolean('windows-ptyxis')) ||
-              this._settings.get_boolean('windows-blur')) &&
+        const enabled = active && (state.menu ? this._blurMenus :
+            (this._blurPtyxis && isPtyxis(window)) || (this._blurWindows && !opaque)) &&
             actor.visible && actor.mapped && actor.opacity > 0 && !window.minimized &&
             actor.width * actor.scale_x >= 1 && actor.height * actor.scale_y >= 1 &&
             window.showing_on_its_workspace() &&
             (parent === global.window_group || parent === global.top_window_group);
-        if (!enabled) {
-            state.blur?.hide();
-            state.guard.end();
-            return;
-        }
+        if (!enabled)
+            return this._hide(state);
         if (!state.blur) {
             state.blur = new St.Widget({name: 'gnome-extended-window-blur', reactive: false,
                 style: 'background-color: transparent;'});
@@ -148,38 +341,39 @@ export class WindowSurfaces {
             state.blur.add_effect_with_name('gnome-extended-window-blur', state.effect);
             parent.insert_child_below(state.blur, actor);
         }
-        const siblings = parent.get_children();
-        if (siblings.indexOf(state.blur) !== siblings.indexOf(actor) - 1)
+        const previousParent = state.blur.get_parent();
+        if (previousParent !== parent) {
+            previousParent?.remove_child(state.blur);
+            parent.insert_child_below(state.blur, actor);
+        } else if (actor.get_previous_sibling() !== state.blur) {
             parent.set_child_below_sibling(state.blur, actor);
+        }
         const frame = window.get_frame_rect();
         const buffer = window.get_buffer_rect();
-        const geometry = `${actor.x}:${actor.y}:${actor.translation_x}:${actor.translation_y}:${actor.scale_x}:${actor.scale_y}:${frame.x}:${frame.y}:${frame.width}:${frame.height}:${buffer.x}:${buffer.y}`;
-        if (state.geometry !== geometry || !state.blur.visible) {
-            state.effect.queue_repaint();
-            state.geometry = geometry;
-        }
-        state.blur.set_position(actor.x + actor.translation_x + (frame.x - buffer.x) * actor.scale_x,
-            actor.y + actor.translation_y + (frame.y - buffer.y) * actor.scale_y);
-        state.blur.set_size(frame.width, frame.height);
         const maximized = window.is_maximized?.() ?? (window.get_maximized?.() === Meta.MaximizeFlags.BOTH);
-        state.cornerRadius = state.menu ? 12 : (maximized ? 0 : 15);
-        if (state.clip)
-            state.clip.radius = state.cornerRadius;
-        else if (state.effect.corner_radius !== state.cornerRadius)
-            state.effect.corner_radius = state.cornerRadius;
-        state.blur.set_scale(actor.scale_x, actor.scale_y);
-        state.blur.opacity = actor.opacity;
-        const radius = this._settings.get_int('blur-radius');
-        const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-        const brightness = this._settings.get_int('brightness');
-        const rate = this._settings.get_int('blur-rate');
-        const appearance = `${radius}:${scale}:${brightness}:${rate}`;
-        if (state.appearance !== appearance) {
-            applyBlurParameters(state.effect, radiusProperty, radius, scale, brightness);
-            applyBlurRate(state.effect, rate);
-            state.appearance = appearance;
+        const cornerRadius = state.menu ? 12 : (maximized ? 0 : 15);
+        const x = actor.x + actor.translation_x + (frame.x - buffer.x) * actor.scale_x;
+        const y = actor.y + actor.translation_y + (frame.y - buffer.y) * actor.scale_y;
+        const geometry = `${x}:${y}:${frame.width}:${frame.height}:${actor.scale_x}:${actor.scale_y}:${actor.opacity}:${cornerRadius}`;
+        const changed = state.geometry !== geometry || !this._visible.has(state);
+        if (changed) {
+            state.geometry = geometry;
+            state.cornerRadius = cornerRadius;
+            state.blur.set_position(x, y);
+            state.blur.set_size(frame.width, frame.height);
+            state.blur.set_scale(actor.scale_x, actor.scale_y);
+            state.blur.opacity = actor.opacity;
+            if (state.clip)
+                state.clip.radius = cornerRadius;
+            else if (state.effect.corner_radius !== cornerRadius)
+                state.effect.corner_radius = cornerRadius;
         }
+        this._applyEffect(state);
         state.blur.show();
+        this._visible.add(state);
+        state.blurBounds = {x, y, right: x + frame.width * actor.scale_x,
+            bottom: y + frame.height * actor.scale_y};
+        return changed;
     }
 
     _remove(actor) {
@@ -187,15 +381,34 @@ export class WindowSurfaces {
         if (!state)
             return;
         this._windows.delete(actor);
+        this._dirty.delete(state);
+        this._damage.delete(state);
+        this._hide(state);
         state.signals.clear();
-        state.guard.end();
         state.blur?.destroy();
-        this._invalidate();
+        this._syncDamageTracking();
+        if (state.bounds && this._visible.size) {
+            this._exposed.push(state.bounds);
+            this._queueUpdate();
+        }
     }
 
     _clear() {
+        for (const actor of this._identities.keys())
+            this._forgetIdentity(actor);
+        this._stopWindowDamage?.();
+        this._stopWindowDamage = null;
+        this._visible.clear();
         for (const actor of this._windows.keys())
             this._remove(actor);
+        if (this._later) {
+            global.compositor.get_laters().remove(this._later);
+            this._later = 0;
+        }
+        this._exposed.length = 0;
+        this._restacked = false;
+        this._stackPending = false;
+        this._stack.clear();
     }
 
     destroy() {

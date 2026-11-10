@@ -15,12 +15,13 @@ assert set(keys) == {'windows-settings-sidebar', 'windows-ptyxis', 'windows-app-
 assert keys["dock-transparent-in-overview"].findtext("default") == "true"
 for key in ['windows-blur']:
     assert keys[key].findtext('default') == 'false'
-assert 'windowSurfaces.js' in (root / 'Makefile').read_text()
+for module in ['windowSurfaces.js', 'windowDamage.js']:
+    assert module in (root / 'Makefile').read_text()
 for key in keys.values():
     bounds = key.find('range')
     if bounds is not None:
         assert int(bounds.attrib['min']) <= int(key.findtext('default')) <= int(bounds.attrib['max'])
-for filename in ['settingsLauncher.js', 'ptyxisOpacity.js', 'roundedClip.js', 'sidebarStyle.js', 'windowSurfaces.js', 'extension.js', 'frameSignals.js', 'appGrid.js', 'shadowSettings.js', 'dockSurfaces.js', 'prefs.js', 'softSurface.js', 'shellSurfaces.js', 'shellBackgrounds.js', 'panelOpacity.js', 'signals.js', 'blurBackend.js',
+for filename in ['settingsLauncher.js', 'ptyxisOpacity.js', 'roundedClip.js', 'sidebarStyle.js', 'windowSurfaces.js', 'windowDamage.js', 'extension.js', 'frameSignals.js', 'appGrid.js', 'shadowSettings.js', 'dockSurfaces.js', 'prefs.js', 'softSurface.js', 'shellSurfaces.js', 'shellBackgrounds.js', 'panelOpacity.js', 'signals.js', 'blurBackend.js',
                  'blurRedrawGuard.js', 'COPYING', 'README.md']:
     assert (root / filename).is_file(), filename
 print('Package identity, schema ranges and required files: OK')

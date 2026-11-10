@@ -45,7 +45,7 @@ def test_sidebar(evaluate, check, screenshot, results):
         results['menu-pointer'] = evaluate('({pointer:global.get_pointer(),overview:Main.overview.visible})')
         results['menu-actors'] = evaluate('global.get_window_actors().map(a=>({title:a.meta_window.get_title(),type:a.meta_window.get_window_type(),parent:a.get_parent()?.toString(),rect:[a.x,a.y,a.width,a.height],tracked:soft._windowSurfaces._windows.get(a)?.menu,blur:soft._windowSurfaces._windows.get(a)?.blur?.visible}))')
         check('gtk-menu-has-blur', '[...soft._windowSurfaces._windows.values()].some(s=>s.menu && s.actor.opacity===255 && s.blur?.visible)')
-        evaluate('global.window_group.set_child_below_sibling(testBackdrop,nautilusActor); soft._windowSurfaces._update()')
+        evaluate('global.window_group.set_child_below_sibling(testBackdrop,nautilusActor); soft._windowSurfaces.sync()')
         time.sleep(.2)
         check('shared-blur-parameters', '[...soft._windowSurfaces._windows.values()].filter(s=>s.blur?.visible).every(s=>Math.abs(s.effect.brightness-.7)<.001 && (s.effect.radius===42 || s.effect.sigma===21))')
         check('rounded-menu-backdrop', '[...soft._windowSurfaces._windows.values()].filter(s=>s.menu).every(s=>s.cornerRadius===12 && (s.clip?.radius===12 || s.effect.corner_radius===12))')
@@ -66,12 +66,13 @@ def test_sidebar(evaluate, check, screenshot, results):
         css=(config/'gtk.css').read_text()
         assert css.count('45%')==3, 'Sidebar, backdrop sidebar and menu must share the general opacity'
         evaluate('soft._settings.set_int("opacity",72)')
+        time.sleep(.2)
         assert (config/'gtk.css').read_text().count('72%')==3, 'General opacity must update both managed styles'
         evaluate('soft._settings.set_int("opacity",45)')
         evaluate('menuPointer.notify_absolute_motion(imports.gi.GLib.get_monotonic_time(),1200,900); menuPointer.notify_button(imports.gi.GLib.get_monotonic_time(),1,imports.gi.Clutter.ButtonState.PRESSED)')
         evaluate('menuPointer.notify_button(imports.gi.GLib.get_monotonic_time(),1,imports.gi.Clutter.ButtonState.RELEASED)')
         time.sleep(.4)
-        evaluate('global.window_group.set_child_below_sibling(testBackdrop,nautilusActor); soft._windowSurfaces._update()')
+        evaluate('global.window_group.set_child_below_sibling(testBackdrop,nautilusActor); soft._windowSurfaces.sync()')
         time.sleep(.2)
         for theme in ['light' if os.environ.get('SOFT_TEST_LIGHT') else 'dark']:
             if theme == 'light':

@@ -202,9 +202,13 @@ export class ShellSurfaces {
             panel: record.key === 'top-panel', anchor});
     }
 
-    sync() {
+    sync(effectOnly = false) {
         for (const record of this._records.values()) {
             const existing = record.surface;
+            if (effectOnly) {
+                existing?.update(true);
+                continue;
+            }
             this._refresh(record);
             if (existing && existing === record.surface)
                 existing.update();

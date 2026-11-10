@@ -58,7 +58,7 @@ def test_surfaces(evaluate, check, screenshot, results):
              'group:s._group.opacity, mapped:s._blur.mapped, panel:Main.panel.opacity});}); Main.overview.show();')
     time.sleep(0.6)
     check('panel-overview-fully-transparent', 'findSoft("top-panel")._panelFade.value===0 && !findSoft("top-panel")._group.visible && !findSoft("top-panel")._blur.mapped && Main.panel.get_theme_node().get_background_color().alpha===0')
-    check('panel-overview-no-window-signals', 'findSoft("top-panel")._windows.size===0')
+    check('panel-overview-no-window-signals', '!findSoft("top-panel")._stopWindowDamage')
     screenshot('panel-overview-transparent')
     evaluate('soft._settings.set_boolean("top-panel",false); soft._settings.set_boolean("top-panel",true);')
     check('panel-enabled-in-overview-stays-transparent', 'findSoft("top-panel")._panelFade.value===0 && !findSoft("top-panel")._group.visible')
@@ -89,7 +89,7 @@ def test_surfaces(evaluate, check, screenshot, results):
     evaluate('Main.panel.set_style(panelFadeOriginalStyle);')
     evaluate('soft._settings.set_int("opacity",100);')
     time.sleep(0.4)
-    check('panel-opaque-keeps-tint-only', 'findSoft("top-panel")._group.visible && findSoft("top-panel")._panelTint.mapped && !findSoft("top-panel")._blur.mapped && findSoft("top-panel")._windows.size===0')
+    check('panel-opaque-keeps-tint-only', 'findSoft("top-panel")._group.visible && findSoft("top-panel")._panelTint.mapped && !findSoft("top-panel")._blur.mapped && !findSoft("top-panel")._stopWindowDamage')
     evaluate('soft._settings.set_int("opacity",55);')
     time.sleep(0.3)
 
