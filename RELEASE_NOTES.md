@@ -1,3 +1,11 @@
+## Versão 24 — Barra lateral do Configurações
+
+- Nova opção **Configurações: apenas a barra lateral**, seguindo o padrão do Arquivos.
+- Opacidade, intensidade, brilho e frequência compartilhados com a aba Blur.
+- Conteúdo, textos e ícones permanecem opacos, com cantos arredondados preservados.
+- Estilo limitado ao Configurações por um overlay do template e lançador D-Bus reversível do usuário; nenhum arquivo do sistema é alterado.
+- Desativar restaura o lançador anterior e preserva alterações pessoais. Reabra o aplicativo pelo lançador para carregar as mudanças.
+
 ## Versão 23 — Terminal Ptyxis
 
 - Nova opção **Ptyxis: apenas a área do terminal** na aba Janelas.

@@ -1,3 +1,18 @@
+# Validação da versão 24 — 10 de novembro de 2026
+
+- `make check`: pacote, schemas, estilos GTK, template e integração de perfis do Ptyxis: PASS.
+- Configurações 51.1 real / libadwaita 1.10, GNOME Shell 51.1 / Wayland privado: PASS.
+- Ativação D-Bus com lançador exclusivo e template extraído do aplicativo instalado: PASS.
+- Troca da cena atrás da janela altera os pixels da lateral (delta médio ~42), enquanto a área de conteúdo permanece idêntica (delta 0).
+- Opacidade do ator permanece 255; textos e ícones não recebem opacidade global: PASS.
+- Lançador existente restaurado byte a byte; alterações manuais preservadas; remoção do lançador gerado ao desativar: PASS.
+- Testes gráficos com backend opcional no tema escuro e fallback nativo no tema claro: PASS.
+- Regressões de Arquivos, Ptyxis, superfícies do Shell, preferências e restauração dos padrões: PASS.
+- Inspeção visual da barra lateral e área de conteúdo: PASS.
+
+Resultados em `validation/settings-sidebar-backend-results.json` e `validation/settings-sidebar-native-results.json`.
+Os testes usam diretórios XDG e barramento D-Bus privados; nenhuma janela de Configurações da sessão real é aberta ou encerrada.
+
 # Validação da versão 23 — 8 de novembro de 2026
 
 - `make check`: pacote, schemas, sinais, estilos GTK e perfis do Ptyxis: PASS.

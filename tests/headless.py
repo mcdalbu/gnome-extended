@@ -150,6 +150,9 @@ def test():
                     style:'font-size: 38px; font-weight: bold; color: white;'}));
             Main.uiGroup.insert_child_above(testBackdrop, global.window_group);
         })()''')
+        if os.environ.get('SOFT_TEST_SETTINGS_SIDEBAR'):
+            from settings_sidebar import test_settings_sidebar
+            test_settings_sidebar(evaluate, check, screenshot, results)
         if os.environ.get('SOFT_TEST_PTYXIS'):
             from ptyxis_window import test_ptyxis
             test_ptyxis(evaluate, check, screenshot, results)

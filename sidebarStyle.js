@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import {syncSettingsLauncher} from './settingsLauncher.js';
 
 const BEGIN = '/* BEGIN GNOME Extended: Nautilus sidebar */';
 const END = '/* END GNOME Extended: Nautilus sidebar */';
@@ -26,6 +27,35 @@ window.nautilus-window .sidebar-pane:backdrop {
     background-color: color-mix(in srgb, var(--sidebar-backdrop-color) ${percent}%, transparent);
 }
 ${END}`;
+}
+
+export function settingsSidebarCss(opacity) {
+    const percent = Math.max(0, Math.min(100, opacity));
+    return `/* BEGIN GNOME Extended: Settings sidebar */
+window.gnome-extended-settings {
+    background-color: transparent;
+    border-radius: 15px;
+}
+window.gnome-extended-settings.maximized,
+window.gnome-extended-settings.fullscreen {
+    border-radius: 0;
+}
+window.gnome-extended-settings .content-pane {
+    background-color: var(--window-bg-color);
+}
+window.gnome-extended-settings .sidebar-pane {
+    background-color: color-mix(in srgb, var(--sidebar-bg-color) ${percent}%, transparent);
+}
+window.gnome-extended-settings .sidebar-pane:backdrop {
+    background-color: color-mix(in srgb, var(--sidebar-backdrop-color) ${percent}%, transparent);
+}
+/* END GNOME Extended: Settings sidebar */`;
+}
+
+export function updateSettingsSidebarBlock(original, enabled, opacity) {
+    return updateBlock(original, enabled, settingsSidebarCss(opacity),
+        '/* BEGIN GNOME Extended: Settings sidebar */',
+        '/* END GNOME Extended: Settings sidebar */');
 }
 
 export function menuCss(opacity) {
@@ -63,6 +93,7 @@ export function updateMenuBlock(original, enabled, opacity) {
 }
 
 export function saveSidebarStyle(settings) {
+    syncSettingsLauncher(settings);
     const directory = GLib.build_filenamev([GLib.get_user_config_dir(), 'gtk-4.0']);
     const file = Gio.File.new_for_path(GLib.build_filenamev([directory, 'gtk.css']));
     let original = '';
@@ -78,7 +109,9 @@ export function saveSidebarStyle(settings) {
     const sidebar = updateSidebarBlock(original,
         settings.get_boolean('windows-nautilus-sidebar'),
         settings.get_int('opacity'));
-    const result = updateMenuBlock(sidebar, settings.get_boolean('windows-app-menus'),
+    const settingsSidebar = updateSettingsSidebarBlock(sidebar,
+        settings.get_boolean('windows-settings-sidebar'), settings.get_int('opacity'));
+    const result = updateMenuBlock(settingsSidebar, settings.get_boolean('windows-app-menus'),
         settings.get_int('opacity'));
     if (result === original)
         return;

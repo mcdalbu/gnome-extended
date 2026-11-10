@@ -1,7 +1,7 @@
 # GNOME Extended
 
 Blur e transparência para superfícies do GNOME Shell, integração com Dash to Dock
-e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão **23**.
+e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão **24**.
 
 ## Configurações
 
@@ -10,7 +10,7 @@ As preferências estão organizadas em seis abas:
 - **Elementos:** notificações/calendário, configurações rápidas, diálogos,
   banners, pastas, alternadores, indicadores de volume/brilho, captura de tela,
   menus, overview e tela de bloqueio.
-- **Janelas:** transparência apenas no fundo da barra lateral do Arquivos e
+- **Janelas:** transparência apenas no fundo das barras laterais do Arquivos e do Configurações e
   nos menus de contexto GTK 4 e na área do terminal Ptyxis (barra de título opaca), com a opacidade geral da aba Blur. Textos, ícones e
   a área de arquivos permanecem opacos. Intensidade, brilho e frequência também seguem a aba Blur.
   A opção de transparência da janela inteira foi removida.
@@ -38,7 +38,7 @@ migrada para os três switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v23.zip
+gnome-extensions install --force gnome-extended@local_v24.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua
@@ -130,3 +130,24 @@ desativá-la é preservada quando difere dos valores aplicados por ela.
 O estilo de opacidade persiste ao desligar somente a extensão, como os estilos
 GTK; o blur exige a extensão ativa. O Ptyxis não é uma dependência obrigatória.
 Instalações Flatpak com schemas isolados não são configuradas por esta opção.
+
+## Barra lateral do Configurações
+
+Ative **Janelas → Configurações: apenas a barra lateral**. A aparência usa os
+valores gerais de **Blur**, como no Arquivos; ative também o blur atrás das
+janelas para desfocar a cena. Textos, ícones e área de conteúdo permanecem opacos.
+Feche o Configurações e reabra pelo lançador de aplicativos para aplicar o estilo.
+
+O Configurações não fornece uma classe CSS própria no topo da janela. Para
+limitar o estilo a ele, a integração adiciona uma classe ao template extraído do
+aplicativo instalado, usando um overlay de recursos no processo. O lançador
+D-Bus do usuário em `~/.local/share/dbus-1/services/org.gnome.Settings.service`
+recebe a variável `G_RESOURCE_OVERLAYS`; o executável e seus argumentos originais
+são mantidos. Os arquivos em `/usr` não são alterados.
+
+O template e o backup ficam em `~/.config/gnome-extended/`. Desativar a opção
+remove o estilo e restaura o lançador anterior; alterações manuais feitas no
+lançador são preservadas. O template é regenerado a partir do aplicativo
+instalado quando seu binário muda. Uma primeira abertura diretamente pelo comando
+`gnome-control-center`, fora da ativação D-Bus, não carrega esse overlay.
+O perfil foi validado com Configurações 51.1 / libadwaita 1.10.

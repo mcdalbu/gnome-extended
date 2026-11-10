@@ -117,5 +117,10 @@
       <summary>Transparência e blur apenas no fundo do terminal Ptyxis</summary>
       <description>Usa a opacidade geral nos perfis do Ptyxis, preservando a barra de título opaca. Ao desativar, restaura os valores anteriores.</description>
     </key>
+    <key name="windows-settings-sidebar" type="b">
+      <default>false</default>
+      <summary>Transparência apenas no fundo da barra lateral do Configurações</summary>
+      <description>Usa a aparência geral da aba Blur; preserva o conteúdo, textos e ícones opacos. Reabra o Configurações após alterar o estilo.</description>
+    </key>
   </schema>
 </schemalist>

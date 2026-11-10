@@ -60,6 +60,8 @@ export default class GnomeExtendedPreferences extends ExtensionPreferences {
             'Transparência apenas no fundo do elemento. Textos, ícones e a área de arquivos permanecem opacos.');
         toggle(sidebar, settings, 'windows-nautilus-sidebar', 'Arquivos: apenas a barra lateral',
             'Inclui o cabeçalho da lateral esquerda. A área de arquivos permanece opaca.');
+        toggle(sidebar, settings, 'windows-settings-sidebar', 'Configurações: apenas a barra lateral',
+            'Inclui o cabeçalho da lateral. Reabra pelo lançador de aplicativos para aplicar; o conteúdo permanece opaco.');
         toggle(sidebar, settings, 'windows-app-menus', 'Menus de contexto dos aplicativos GTK 4',
             'Transparência no fundo e blur, preservando o texto. Inclui o menu de botão direito do Arquivos.');
         toggle(sidebar, settings, 'windows-ptyxis', 'Ptyxis: apenas a área do terminal',
@@ -77,7 +79,7 @@ export default class GnomeExtendedPreferences extends ExtensionPreferences {
                 sidebarStatus.subtitle = `Não foi possível aplicar o estilo: ${error.message}`;
             }
         };
-        const sidebarSignals = ['windows-nautilus-sidebar', 'windows-app-menus', 'windows-ptyxis', 'opacity'].map(key =>
+        const sidebarSignals = ['windows-nautilus-sidebar', 'windows-settings-sidebar', 'windows-app-menus', 'windows-ptyxis', 'opacity'].map(key =>
             settings.connect(`changed::${key}`, syncSidebarStyle));
         window.connect('close-request', () => {
             for (const id of sidebarSignals)
@@ -89,7 +91,7 @@ export default class GnomeExtendedPreferences extends ExtensionPreferences {
         const windows = group(windowsPage, 'Blur das janelas e menus',
             'O conteúdo do aplicativo permanece opaco. O blur aparece atrás dos elementos transparentes compatíveis.');
         toggle(windows, settings, 'windows-blur', 'Ativar blur atrás das janelas',
-            'Também funciona com a barra lateral transparente do Arquivos. Áreas opacas cobrem o blur.');
+            'Funciona com as barras laterais transparentes do Arquivos e do Configurações. Áreas opacas cobrem o blur.');
 
         windows.add(new Adw.ActionRow({title: 'Aparência compartilhada',
             subtitle: 'Opacidade, intensidade, brilho e frequência seguem os valores da aba Blur.'}));

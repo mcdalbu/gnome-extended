@@ -2,7 +2,7 @@
   "uuid": "gnome-extended@local",
   "name": "Gnome Extended",
   "url": "https://github.com/mcdalbu/gnome-extended",
-  "description": "Blur dinâmico em menus, diálogos, notificações, pastas, barra, alternadores, volume/brilho, captura, overview e tela de bloqueio, com controles independentes. Inclui sombras dos ícones da grade, dos docks e do Alt+Tab. Transparência seletiva no fundo da barra lateral do Arquivos e dos menus de contexto GTK 4, preservando textos, ícones e conteúdo. Inclui transparência e blur no terminal Ptyxis com barra de título opaca.",
+  "description": "Blur dinâmico em menus, diálogos, notificações, pastas, barra, alternadores, volume/brilho, captura, overview e tela de bloqueio, com controles independentes. Inclui sombras dos ícones da grade, dos docks e do Alt+Tab. Transparência seletiva no fundo da barra lateral do Arquivos e dos menus de contexto GTK 4, preservando textos, ícones e conteúdo. Inclui transparência e blur no terminal Ptyxis com barra de título opaca. Barra lateral do Configurações com transparência e blur opcionais.",
   "shell-version": [
     "45",
     "46",
@@ -12,9 +12,9 @@
     "50",
     "51"
   ],
-  "version": 23,
+  "version": 24,
   "settings-schema": "org.gnome.shell.extensions.gnome-extended",
-  "version-name": "23",
+  "version-name": "24",
   "session-modes": [
     "user",
     "unlock-dialog"
