@@ -99,6 +99,45 @@ def test_windows(evaluate, check, screenshot, results):
             evaluate('testWindowActors[0].remove_effect(unculledWindow)')
         results['moving-window-capture-errors'] = capture_errors
         assert max(capture_errors) < 1, f'Incomplete blur backdrop: {capture_errors}'
+        # A stationary text scene must stay stable in screen coordinates as
+        # the transparent foreground window moves by single pixels.
+        evaluate('''testWindowActors[0].meta_window.move_resize_frame(false,100,160,700,550);
+            globalThis.textBackdrop = new imports.gi.St.Widget({width: 1440, height: 1000,
+                style: 'background-color: white;', reactive: false});
+            for (let y = 100; y < 600; y += 22)
+                textBackdrop.add_child(new imports.gi.St.Label({x: 100, y,
+                    text: 'Text behind blur  0123456789  MWMWMW  Text behind blur',
+                    style: 'font: 16px monospace; color: black;'}));
+            const state = soft._windowSurfaces._windows.get(testWindowActors[0]);
+            global.window_group.insert_child_below(textBackdrop, state.blur);''')
+        positions = [(offset, 0) for offset in range(8)]
+        positions += [(55 + offset, 0) for offset in range(8)]
+        positions += [(0, offset) for offset in range(1, 8)]
+        text_errors = []
+        for height in [270, 550]:
+            evaluate(f'testWindowActors[0].meta_window.move_resize_frame(false,100,160,700,{height})')
+            time.sleep(.2)
+            text_images = []
+            capture_sizes = []
+            for index, (dx, dy) in enumerate(positions):
+                evaluate(f'testWindowActors[0].meta_window.move_frame(false,{100 + dx},{160 + dy})')
+                time.sleep(.1)
+                text_images.append(screenshot(f'text-motion-{height}-{index}'))
+                capture_sizes.append(evaluate('''(()=>{
+                    const state=soft._windowSurfaces._windows.get(testWindowActors[0]);
+                    return state.capture.get_transformed_size();
+                })()'''))
+            assert all(size == capture_sizes[0] for size in capture_sizes), 'Movement resized blur capture'
+            reference = text_images[0].get_pixels()
+            stride, channels = text_images[0].get_rowstride(), text_images[0].get_n_channels()
+            for image in text_images[1:]:
+                pixels = image.get_pixels()
+                errors = [abs(reference[y*stride+x*channels+c]-pixels[y*stride+x*channels+c])
+                          for y in range(250,340) for x in range(190,230) for c in range(3)]
+                text_errors.append(sum(errors)/len(errors))
+        results['text-motion-screen-pixel-errors'] = text_errors
+        evaluate('textBackdrop.destroy(); testWindowActors[0].meta_window.move_resize_frame(false,100,160,420,240)')
+        assert max(text_errors) < 1, f'Text shimmers behind moving blur: {text_errors}'
         screenshot('application-windows')
         new_client = subprocess.Popen(['gjs', '-m', str(Path(__file__).with_name('surface-windows.js')),
                                        'local.SoftBlurNewTest'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

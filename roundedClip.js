@@ -22,7 +22,7 @@ export const RoundedClip = GObject.registerClass(class RoundedClip extends Clutt
         const framebuffer = context.get_framebuffer();
         const views = actor.peek_stage_views();
         const view = views.find(v => v.get_framebuffer() === framebuffer) ?? views[0];
-        if (!view || this.radius <= 0) {
+        if (!view) {
             actor.continue_paint(context);
             return;
         }

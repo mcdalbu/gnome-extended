@@ -1,3 +1,14 @@
+# Validação da versão 28 — 11 de novembro de 2026
+
+- Reproduzida a cintilação em texto preto de 16 px sobre fundo branco, atrás da lateral transparente de uma janela de 700 × 550: diferenças médias de 1,30 / 1,15 / 2,53 níveis RGB repetiam a cada quatro pixels de movimento.
+- Captura alinhada à tela: diferenças iguais a zero nas 44 comparações por backend, em movimentos horizontais e verticais de um pixel, cruzamento de tiles e alturas de janela 270 e 550. As dimensões da captura permanecem constantes em cada sequência.
+- GNOME Rounded Blur e Shell.BlurEffect nativo: testes completos de janelas, alinhamento animado, empilhamento, dano local, geometria, minimização, overview, tela cheia, desativação e teardown: PASS.
+- Nautilus real: cantos da janela e do menu com erro de pixels zero. Ptyxis real: blur independente, perfil de opacidade e preservação de título/texto: PASS.
+- Ausência de loop de redraw ocioso, `make check` e `git diff --check`: PASS.
+- Resultados: `validation/gnome50-results.json` e `validation/gnome50-native-results.json` (nome histórico do harness).
+
+Sessões GNOME Shell/Wayland privadas, monitor virtual com escala 1. Outras escalas e versões do GNOME não foram validadas nesta correção. O backend opcional não requer alteração.
+
 # Validação da versão 27 — 11 de novembro de 2026
 
 - Regressão reproduzida antes da correção: diferença média de 2,69 / 2,10 / 2,16 níveis RGB junto à fronteira entre a lateral transparente e o conteúdo opaco, comparando três posições com uma referência sem oclusão.

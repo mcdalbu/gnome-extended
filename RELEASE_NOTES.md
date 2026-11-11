@@ -1,3 +1,12 @@
+## Versão 28 — Estabilidade de textos atrás do blur
+
+- Corrigida a cintilação de texto e detalhes finos atrás de uma janela transparente em movimento. A captura do blur agora usa uma grade fixa na tela, em vez de deslocar a fase de amostragem com a janela.
+- A captura inclui uma margem para o filtro e mantém dimensões constantes durante o movimento, evitando mudanças de resolução do desfoque e realocações de texturas ao atravessar a grade.
+- A área visível continua acompanhando exatamente a janela, com recorte arredondado aplicado diretamente no framebuffer nos dois backends. Janelas maximizadas preservam os cantos retos.
+- Mantida a proteção das regiões opacas da versão 27. Textos e controles do aplicativo continuam nítidos e opacos.
+
+Instale `gnome-extended@local_v28.zip` com `gnome-extensions install --force` e saia da sessão e entre novamente para carregar a atualização. O backend opcional 1.0.2-4.local continua compatível.
+
 ## Versão 27 — Fundo do blur durante o movimento das janelas
 
 - Corrigida a captura incompleta do fundo junto às áreas opacas das janelas com blur. Essas regiões agora continuam disponíveis ao efeito, evitando pixels antigos durante o movimento.
