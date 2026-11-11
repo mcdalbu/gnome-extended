@@ -1,3 +1,11 @@
+## Versão 27 — Fundo do blur durante o movimento das janelas
+
+- Corrigida a captura incompleta do fundo junto às áreas opacas das janelas com blur. Essas regiões agora continuam disponíveis ao efeito, evitando pixels antigos durante o movimento.
+- A proteção é aplicada somente às janelas com blur visível e raio positivo; é removida ao ocultar o efeito, zerar o raio ou desligar a integração.
+- Textos e controles continuam opacos. O ajuste não cria captura intermediária da janela nem redesenho contínuo quando o desktop está parado.
+
+Instale `gnome-extended@local_v27.zip` com `gnome-extensions install --force` e saia da sessão e entre novamente para carregar a atualização.
+
 ## Versão 26 — Menos trabalho durante o uso do desktop
 
 - Menus fechados liberam os callbacks de quadro. A abertura e as animações reconectam o acompanhamento do fundo.

@@ -27,6 +27,16 @@ function isPtyxis(window) {
         window.get_wm_class()?.startsWith('org.gnome.Ptyxis');
 }
 
+// Mutter excludes an opaque window's region when painting the actors below
+// it. A sibling BACKGROUND blur also samples that region, especially along
+// translucent/opaque boundaries. An enabled, in-place effect makes Mutter
+// preserve those source pixels without an offscreen copy of the window.
+const BlurSource = GObject.registerClass(class BlurSource extends Clutter.Effect {
+    vfunc_paint(_node, context, _flags) {
+        this.get_actor().continue_paint(context);
+    }
+});
+
 // A sibling backdrop samples only the windows below this one. Blurring the
 // window actor itself would also blur its text and controls.
 export class WindowSurfaces {
@@ -299,11 +309,22 @@ export class WindowSurfaces {
     _hide(state) {
         this._visible.delete(state);
         state.blur?.hide();
+        if (state.source) {
+            state.actor.remove_effect(state.source);
+            state.source = null;
+        }
         state.guard.end();
         return false;
     }
 
     _applyEffect(state) {
+        if (this._radius > 0 && !state.source) {
+            state.source = new BlurSource();
+            state.actor.add_effect(state.source);
+        } else if (this._radius === 0 && state.source) {
+            state.actor.remove_effect(state.source);
+            state.source = null;
+        }
         const appearance = `${this._radius}:${this._scale}:${this._brightness}:${this._rate}`;
         if (state.appearance === appearance)
             return;

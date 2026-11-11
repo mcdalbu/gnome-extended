@@ -1,3 +1,14 @@
+# Validação da versão 27 — 11 de novembro de 2026
+
+- Regressão reproduzida antes da correção: diferença média de 2,69 / 2,10 / 2,16 níveis RGB junto à fronteira entre a lateral transparente e o conteúdo opaco, comparando três posições com uma referência sem oclusão.
+- Após a correção, diferença de pixels igual a zero nas três posições com GNOME Rounded Blur e com Shell.BlurEffect nativo.
+- Animação de movimento: alinhamento do backdrop em todos os quadros pintados.
+- Sessões GNOME Shell/Wayland privadas: geometria, empilhamento, atualização local de conteúdo, novas janelas, fechamento, minimização, tela cheia, overview, desativação, teardown e ausência de loop de redraw ocioso: PASS nos dois backends.
+- `make check`: PASS. `git diff --check`: PASS.
+- Resultados: `validation/gnome50-results.json` e `validation/gnome50-native-results.json` (nome histórico do harness).
+
+A validação gráfica usa o compositor e o renderer locais, monitor virtual com escala 1. A sessão real do usuário não foi alterada. Outras escalas e versões do GNOME não foram testadas nesta correção.
+
 # Validação da versão 24 — 10 de novembro de 2026
 
 - `make check`: pacote, schemas, estilos GTK, template e integração de perfis do Ptyxis: PASS.

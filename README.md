@@ -1,7 +1,7 @@
 # GNOME Extended
 
 Blur e transparência para superfícies do GNOME Shell, integração com Dash to Dock
-e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão **24**.
+e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão **27**.
 
 ## Configurações
 
@@ -38,7 +38,7 @@ migrada para os três switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v26.zip
+gnome-extensions install --force gnome-extended@local_v27.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua

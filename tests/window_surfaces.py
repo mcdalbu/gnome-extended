@@ -34,6 +34,26 @@ def test_windows(evaluate, check, screenshot, results):
             const s=soft._windowSurfaces._windows.get(a), r=a.meta_window.get_frame_rect();
             return s.blur.width===r.width && s.blur.height===r.height && Math.abs(s.blur.x-r.x)<1 && Math.abs(s.blur.y-r.y)<1;
         })''')
+        # Check every painted animation frame, not just settled geometry.
+        evaluate('''globalThis.movingBlurFrames = [];
+            globalThis.movingBlurSignal = global.stage.connect('after-paint', () => {
+                const actor = testWindowActors[0];
+                const state = soft._windowSurfaces._windows.get(actor);
+                const frame = actor.meta_window.get_frame_rect();
+                const buffer = actor.meta_window.get_buffer_rect();
+                const x = actor.x + actor.translation_x + (frame.x - buffer.x) * actor.scale_x;
+                const y = actor.y + actor.translation_y + (frame.y - buffer.y) * actor.scale_y;
+                movingBlurFrames.push(Math.abs(state.blur.x - x) < .01 &&
+                    Math.abs(state.blur.y - y) < .01);
+            });
+            testWindowActors[0].ease({translation_x: 180, translation_y: 70,
+                duration: 500, mode: imports.gi.Clutter.AnimationMode.LINEAR});''')
+        time.sleep(.8)
+        evaluate('global.stage.disconnect(movingBlurSignal)')
+        check('windows-moving-blur-aligned-every-frame',
+              'movingBlurFrames.length > 5 && movingBlurFrames.every(Boolean)')
+        evaluate('testWindowActors[0].translation_x = 0; testWindowActors[0].translation_y = 0')
+        time.sleep(.2)
         evaluate('testWindowActors[1].meta_window.move_frame(false,950,240)')
         time.sleep(.4)
         evaluate('''globalThis.windowRepaints = [0, 0];
@@ -51,6 +71,34 @@ def test_windows(evaluate, check, screenshot, results):
         time.sleep(.2)
         check('windows-damage-batched-and-local', 'windowRepaints[0] === 1 && windowRepaints[1] === 0')
         evaluate('restoreWindowRepaints.forEach(restore => restore())')
+        # An opaque part of the owner must not cull pixels sampled by the
+        # blur under its translucent sidebar. Compare against uncullable paint.
+        evaluate('''globalThis.UnculledWindow = imports.gi.GObject.registerClass(
+            class UnculledWindow extends imports.gi.Clutter.Effect {
+                vfunc_paint(_node, context, _flags) {
+                    this.get_actor().continue_paint(context);
+                }
+            });''')
+        capture_errors = []
+        for offset in [0, 19, 41]:
+            evaluate(f'testWindowActors[0].meta_window.move_frame(false,{100 + offset},160)')
+            time.sleep(.12)
+            actual = screenshot(f'moving-window-{offset}')
+            evaluate('''globalThis.unculledWindow = new UnculledWindow();
+                testWindowActors[0].add_effect(unculledWindow);''')
+            time.sleep(.12)
+            reference = screenshot(f'moving-window-reference-{offset}')
+            rect = evaluate('(()=>{const r=testWindowActors[0].meta_window.get_frame_rect();return [r.x,r.y]})()')
+            first, second = actual.get_pixels(), reference.get_pixels()
+            stride, channels = actual.get_rowstride(), actual.get_n_channels()
+            # Read the translucent side near the opaque content boundary.
+            errors = [abs(first[y*stride+x*channels+c]-second[y*stride+x*channels+c])
+                      for y in range(rect[1]+80, rect[1]+180)
+                      for x in range(rect[0]+115, rect[0]+148) for c in range(3)]
+            capture_errors.append(sum(errors)/len(errors))
+            evaluate('testWindowActors[0].remove_effect(unculledWindow)')
+        results['moving-window-capture-errors'] = capture_errors
+        assert max(capture_errors) < 1, f'Incomplete blur backdrop: {capture_errors}'
         screenshot('application-windows')
         new_client = subprocess.Popen(['gjs', '-m', str(Path(__file__).with_name('surface-windows.js')),
                                        'local.SoftBlurNewTest'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
