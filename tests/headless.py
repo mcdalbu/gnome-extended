@@ -182,6 +182,26 @@ def test():
             from dock_surfaces import test_docks
             test_docks(evaluate, check, results)
         check('two-surfaces', 'soft._surfaces.size === 2')
+        evaluate('''globalThis.closedSurfaceCalls = 0;
+            globalThis.restoreClosedSurfaces = [];
+            for (const surface of soft._surfaces.values()) {
+                surface.menu.close();
+                const visibility = surface._syncVisibility, geometry = surface._syncGeometry;
+                restoreClosedSurfaces.push(() => {
+                    delete surface._syncVisibility; delete surface._syncGeometry;
+                });
+                surface._syncVisibility = function (...args) {
+                    closedSurfaceCalls++; return visibility.apply(this, args);
+                };
+                surface._syncGeometry = function (...args) {
+                    closedSurfaceCalls++; return geometry.apply(this, args);
+                };
+            }''')
+        time.sleep(.4)
+        evaluate('closedSurfaceCalls = 0; global.stage.queue_redraw()')
+        time.sleep(.15)
+        check('closed-menus-release-frame-callbacks', 'closedSurfaceCalls === 0')
+        evaluate('restoreClosedSurfaces.forEach(restore => restore())')
         results['backend'] = evaluate('(() => { const s = soft._surfaces.get("quick-settings"); '
                                       'return {type: s._effect.constructor.name, corners: s._hasCorners, '
                                       'radiusProperty: s._radiusProperty}; })()')

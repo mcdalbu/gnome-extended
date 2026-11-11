@@ -3,7 +3,6 @@ import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
 import {Signals} from './signals.js';
-import {FrameSignals} from './frameSignals.js';
 
 export function windowBounds(actor) {
     if (!actor.mapped || !actor.visible)
@@ -27,7 +26,8 @@ class WindowDamage {
     constructor() {
         this._subscribers = new Set();
         this._signals = new Signals();
-        this._frames = new FrameSignals();
+        this._geometrySignals = new Signals();
+        this._geometryActors = new WeakSet();
         this._bounds = new WeakMap();
         this._windows = new Map();
         this._dirty = new Set();
@@ -55,12 +55,10 @@ class WindowDamage {
     }
 
     _start() {
-        this._frames.connect(global.stage, 'before-update', () => {
-            this._bounds = new WeakMap();
-        });
         for (const group of new Set([global.window_group, global.top_window_group])) {
             if (!group)
                 continue;
+            this._watchAncestors(group);
             const added = GObject.signal_lookup('child-added', group) ? 'child-added' : 'actor-added';
             const removed = added === 'child-added' ? 'child-removed' : 'actor-removed';
             this._signals.connect(group, added, (_group, actor) => this._track(actor));
@@ -70,11 +68,37 @@ class WindowDamage {
             this._track(actor);
     }
 
+    _watchAncestors(actor) {
+        for (let ancestor = actor; ancestor; ancestor = ancestor.get_parent()) {
+            if (this._geometryActors.has(ancestor))
+                continue;
+            this._geometryActors.add(ancestor);
+            const invalidate = () => {
+                this._bounds = new WeakMap();
+                for (const record of this._windows.values())
+                    this._dirty.add(record);
+                this._queueFlush();
+            };
+            for (const property of ['allocation', 'translation-x', 'translation-y',
+                'scale-x', 'scale-y', 'rotation-angle-x', 'rotation-angle-y',
+                'rotation-angle-z', 'pivot-point', 'transform', 'child-transform'])
+                this._geometrySignals.connect(ancestor, `notify::${property}`, invalidate);
+            this._geometrySignals.connect(ancestor, 'parent-set', () => {
+                this._watchAncestors(ancestor.get_parent());
+                invalidate();
+            });
+        }
+    }
+
     _track(actor) {
         if (!actor.get_meta_window || this._windows.has(actor))
             return;
         const record = {actor, bounds: null, signals: new Signals()};
         this._windows.set(actor, record);
+        const damaged = () => {
+            this._dirty.add(record);
+            this._queueFlush();
+        };
         const update = () => {
             this._bounds.delete(actor);
             this._dirty.add(record);
@@ -82,11 +106,18 @@ class WindowDamage {
         };
         for (const signal of ['notify::allocation', 'notify::visible', 'notify::mapped',
             'notify::opacity', 'notify::translation-x', 'notify::translation-y',
-            'notify::scale-x', 'notify::scale-y'])
+            'notify::scale-x', 'notify::scale-y', 'notify::rotation-angle-x',
+            'notify::rotation-angle-y', 'notify::rotation-angle-z',
+            'notify::pivot-point', 'notify::transform'])
             record.signals.connect(actor, signal, update);
         if (GObject.signal_lookup('damaged', actor))
-            record.signals.connect(actor, 'damaged', update);
+            record.signals.connect(actor, 'damaged', damaged);
+        record.signals.connect(actor, 'parent-set', () => {
+            this._watchAncestors(actor.get_parent());
+            update();
+        });
         record.signals.connect(actor, 'destroy', () => this._untrack(actor));
+        this._watchAncestors(actor.get_parent());
         update();
     }
 
@@ -134,7 +165,8 @@ class WindowDamage {
         if (this._later)
             global.compositor.get_laters().remove(this._later);
         this._later = 0;
-        this._frames.clear();
+        this._geometrySignals.clear();
+        this._geometryActors = new WeakSet();
         this._signals.clear();
         this._bounds = new WeakMap();
         for (const {signals} of this._windows.values())

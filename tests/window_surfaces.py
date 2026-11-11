@@ -71,6 +71,33 @@ def test_windows(evaluate, check, screenshot, results):
         time.sleep(.5)
         evaluate('global.stage.disconnect(windowIdleSignal)')
         check('windows-no-idle-redraw-loop', 'windowIdleFrames < 8')
+        evaluate('''globalThis.contentGeometryReads = 0;
+            const actor = testWindowActors[0];
+            const position = actor.get_transformed_position;
+            actor.get_transformed_position = function () {
+                contentGeometryReads++; return position.call(this);
+            };''')
+        for _ in range(3):
+            evaluate("testWindowActors[0].emit('damaged')")
+            time.sleep(.12)
+        check('stationary-content-reuses-window-bounds', 'contentGeometryReads === 0')
+        evaluate('delete testWindowActors[0].get_transformed_position')
+        evaluate('''(async () => {
+            globalThis.damageObserver = (await import(soft.dir.get_uri() + '/windowDamage.js')).windowDamage;
+        })()''')
+        evaluate('''globalThis.windowGroupTranslation = global.window_group.translation_x;
+            global.window_group.translation_x += 17;''')
+        try:
+            time.sleep(.2)
+            check('ancestor-motion-invalidates-window-bounds', '''(() => {
+                const actor = testWindowActors[0];
+                const bounds = damageObserver.boundsFor(actor);
+                const [x, y] = actor.get_transformed_position();
+                return Math.abs(bounds.x - x) < .01 && Math.abs(bounds.y - y) < .01;
+            })()''')
+        finally:
+            evaluate('global.window_group.translation_x = windowGroupTranslation')
+            time.sleep(.2)
         evaluate('''globalThis.cleanWindowUpdates = 0;
             const surfaces = soft._windowSurfaces;
             const update = surfaces._updateWindow;

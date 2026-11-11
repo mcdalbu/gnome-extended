@@ -1,3 +1,15 @@
+## Versão 26 — Menos trabalho durante o uso do desktop
+
+- Menus fechados liberam os callbacks de quadro. A abertura e as animações reconectam o acompanhamento do fundo.
+- Atualizações de conteúdo de uma janela parada reutilizam sua geometria. Mudanças de posição, tamanho e transformações dos ancestrais invalidam os limites armazenados.
+- Notificações simultâneas da regra de opacidade automática da barra superior são reunidas antes do próximo redesenho.
+
+### Dependências e atualização
+
+- A barra lateral do **Configurações** requer `gresource`, fornecido por `glib2-devel` no Fedora.
+- O GNOME Rounded Blur é opcional. O [backend 1.0.2-4.local da versão 24](https://github.com/mcdalbu/gnome-extended/releases/tag/v24) continua compatível no Fedora 45 x86_64 com Mutter 51.
+- Instale `gnome-extended@local_v26.zip` com `gnome-extensions install --force`. Saia da sessão e entre novamente para carregar o código.
+
 ## Versão 25 — Otimizações de blur e transparência
 
 - O painel, os menus, o dock e as janelas compartilham leituras de geometria e agrupam mudanças antes de repintar o fundo.

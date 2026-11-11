@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -17,6 +18,7 @@ export class PanelOpacity {
         this._tracking = new Signals();
         this._windows = new Map();
         this._enabled = false;
+        this._later = 0;
         this.opaque = false;
     }
 
@@ -26,6 +28,7 @@ export class PanelOpacity {
     }
 
     sync() {
+        this._cancelRefresh();
         const light = St.Settings.get().color_scheme === St.SystemColorScheme.PREFER_LIGHT;
         const enabled = this._settings.get_boolean('top-panel') &&
             this._settings.get_boolean(light ? 'panel-opaque-light' : 'panel-opaque-dark');
@@ -34,12 +37,12 @@ export class PanelOpacity {
             if (enabled) {
                 this._tracking.connect(global.display, 'window-created', (_display, window) => {
                     this._watch(window);
-                    this._refresh();
+                    this._queueRefresh();
                 });
-                this._tracking.connect(global.display, 'window-entered-monitor', () => this._refresh());
-                this._tracking.connect(global.workspace_manager, 'active-workspace-changed', () => this._refresh());
-                this._tracking.connect(Main.layoutManager, 'monitors-changed', () => this._refresh());
-                this._tracking.connect(this._panel, 'notify::allocation', () => this._refresh());
+                this._tracking.connect(global.display, 'window-entered-monitor', () => this._queueRefresh());
+                this._tracking.connect(global.workspace_manager, 'active-workspace-changed', () => this._queueRefresh());
+                this._tracking.connect(Main.layoutManager, 'monitors-changed', () => this._queueRefresh());
+                this._tracking.connect(this._panel, 'notify::allocation', () => this._queueRefresh());
                 for (const actor of global.get_window_actors())
                     this._watch(actor.get_meta_window());
             } else {
@@ -60,11 +63,27 @@ export class PanelOpacity {
         for (const signal of ['notify::maximized-horizontally', 'notify::maximized-vertically',
             'notify::fullscreen', 'notify::minimized', 'notify::on-all-workspaces',
             'workspace-changed', 'position-changed', 'size-changed'])
-            signals.connect(window, signal, () => this._refresh());
+            signals.connect(window, signal, () => this._queueRefresh());
         signals.connect(window, 'unmanaged', () => {
             this._windows.delete(window);
             signals.clear();
+            this._queueRefresh();
+        });
+    }
+
+    _cancelRefresh() {
+        if (this._later)
+            global.compositor.get_laters().remove(this._later);
+        this._later = 0;
+    }
+
+    _queueRefresh() {
+        if (!this._enabled || this._later)
+            return;
+        this._later = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._later = 0;
             this._refresh();
+            return GLib.SOURCE_REMOVE;
         });
     }
 
@@ -89,6 +108,7 @@ export class PanelOpacity {
     }
 
     destroy() {
+        this._cancelRefresh();
         this._signals.clear();
         this._tracking.clear();
         for (const signals of this._windows.values())

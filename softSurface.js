@@ -34,6 +34,7 @@ export class SoftSurface {
         this._settings = settings;
         this._signals = new Signals();
         this._frames = new FrameSignals();
+        this._trackingFrames = false;
         this._children = new Map();
         this._stopWindowDamage = null;
         this._guard = new BlurRedrawGuard(Clutter, Meta);
@@ -203,37 +204,6 @@ export class SoftSurface {
             if (Main.screenShield)
                 this._signals.connect(Main.screenShield, 'active-changed', () => this._recover());
 
-            this._frames.connect(global.stage, 'before-update', (_stage, view) => {
-                this._blurBounds = null;
-                this._syncVisibility();
-                if (!this._group.visible)
-                    return;
-                const opening = this._stackPending || (!this._options.plain &&
-                    (GLib.get_monotonic_time() < this._openingUntil || menu.box.get_paint_opacity() < 255));
-                if (this._stackPending) {
-                    const anchor = this._options.anchor ?? this.menu.actor;
-                    anchor.get_parent().set_child_below_sibling(this._group, anchor);
-                    this._stackPending = false;
-                }
-                // During opening, give the moving BoxPointer backdrop an
-                // allocation before the first paint, including the initial
-                // frame before the box reports its animated opacity.
-                if (opening)
-                    this._syncGeometry(false);
-                // A zero-radius effect paints only the actor, without sampling
-                // the framebuffer. Keep partial redraws during that phase.
-                if (this._effect[this._radiusProperty] > 0)
-                    this._guard.begin(this._blur, view, opening ? this._blur : menu.box);
-                else
-                    this._guard.end();
-                if (this._blur.mapped && GLib.get_monotonic_time() < this._styleUntil)
-                    this._effect.queue_repaint();
-            });
-            this._frames.connect(global.stage, 'before-paint', () => this._syncGeometry());
-            this._frames.connect(global.stage, 'after-update', () => {
-                this._blurBounds = null;
-                this._guard.end();
-            });
             this._signals.connect(global.display, 'restacked', () => this._queueRepaint());
 
             this._trackChild(menu.box);
@@ -243,6 +213,48 @@ export class SoftSurface {
             this.destroy();
             throw error;
         }
+    }
+
+    _syncFrames(visible) {
+        if (visible === this._trackingFrames)
+            return;
+        this._trackingFrames = visible;
+        if (!visible) {
+            this._frames.clear();
+            this._guard.end();
+            return;
+        }
+        this._frames.connect(global.stage, 'before-update', (_stage, view) => {
+            this._blurBounds = null;
+            this._syncVisibility();
+            if (!this._group.visible)
+                return;
+            const opening = this._stackPending || (!this._options.plain &&
+                (GLib.get_monotonic_time() < this._openingUntil || this.menu.box.get_paint_opacity() < 255));
+            if (this._stackPending) {
+                const anchor = this._options.anchor ?? this.menu.actor;
+                anchor.get_parent().set_child_below_sibling(this._group, anchor);
+                this._stackPending = false;
+            }
+            // During opening, give the moving BoxPointer backdrop an
+            // allocation before the first paint, including the initial
+            // frame before the box reports its animated opacity.
+            if (opening)
+                this._syncGeometry(false);
+            // A zero-radius effect paints only the actor, without sampling
+            // the framebuffer. Keep partial redraws during that phase.
+            if (this._effect[this._radiusProperty] > 0)
+                this._guard.begin(this._blur, view, opening ? this._blur : this.menu.box);
+            else
+                this._guard.end();
+            if (this._blur.mapped && GLib.get_monotonic_time() < this._styleUntil)
+                this._effect.queue_repaint();
+        });
+        this._frames.connect(global.stage, 'before-paint', () => this._syncGeometry());
+        this._frames.connect(global.stage, 'after-update', () => {
+            this._blurBounds = null;
+            this._guard.end();
+        });
     }
 
     _replaceEffect() {
@@ -451,6 +463,7 @@ export class SoftSurface {
         const wasVisible = this._group.visible && this._blur.visible;
         this._group.visible = !!visible;
         this._blur.visible = !!blurVisible;
+        this._syncFrames(!!visible);
         if (this._panelCover) {
             this._panelCover.opacity = Math.round(255 * (1 - this._panelReveal.value));
             this._panelCover.visible = blurVisible && this._panelCover.opacity > 0;
@@ -613,6 +626,7 @@ export class SoftSurface {
         this._dockFade?.remove_transition('value');
         this._dockFade = null;
         this._frames.clear();
+        this._trackingFrames = false;
         this._signals.clear();
         for (const signals of this._children.values())
             signals.clear();
