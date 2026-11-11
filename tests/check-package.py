@@ -15,7 +15,7 @@ assert set(keys) == {'windows-settings-sidebar', 'windows-ptyxis', 'windows-app-
 assert keys["dock-transparent-in-overview"].findtext("default") == "true"
 for key in ['windows-blur']:
     assert keys[key].findtext('default') == 'false'
-for module in ['windowSurfaces.js', 'windowDamage.js']:
+for module in ['backdropCapture.js', 'windowSurfaces.js', 'windowDamage.js']:
     assert module in (root / 'Makefile').read_text()
 for key in keys.values():
     bounds = key.find('range')

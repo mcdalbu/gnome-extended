@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
+import Graphene from 'gi://Graphene';
 let Mtk;
 let Cairo;
 try {
@@ -28,6 +29,34 @@ export const RoundedClip = GObject.registerClass(class RoundedClip extends Clutt
         }
         const layout = view.layout;
         const scale = view.get_scale();
+        // The dock backdrop is a sibling of its root, so Clutter does not
+        // inherit the slide container's clip. Read it at paint time: layout
+        // can finish after before-update, and a hidden dock remains mapped.
+        let sourceClip = null;
+        for (let source = this.clipSource; source; source = source.get_parent()) {
+            if (!source.mapped || source.get_paint_opacity() === 0)
+                return;
+            const clips = [];
+            if (source.has_clip)
+                clips.push(source.get_clip());
+            if (source.clip_to_allocation)
+                clips.push([0, 0, source.width, source.height]);
+            for (const [cx, cy, cw, ch] of clips) {
+                if (cw <= 0 || ch <= 0)
+                    return;
+                const points = [[cx, cy], [cx + cw, cy], [cx, cy + ch], [cx + cw, cy + ch]]
+                    .map(([px, py]) => source.apply_relative_transform_to_point(global.stage,
+                        new Graphene.Point3D({x: px, y: py, z: 0})));
+                const bounds = [Math.min(...points.map(p => p.x)), Math.min(...points.map(p => p.y)),
+                    Math.max(...points.map(p => p.x)), Math.max(...points.map(p => p.y))];
+                sourceClip = sourceClip
+                    ? [Math.max(sourceClip[0], bounds[0]), Math.max(sourceClip[1], bounds[1]),
+                        Math.min(sourceClip[2], bounds[2]), Math.min(sourceClip[3], bounds[3])]
+                    : bounds;
+            }
+        }
+        if (sourceClip && (sourceClip[2] <= sourceClip[0] || sourceClip[3] <= sourceClip[1]))
+            return;
         const [stageX, stageY] = actor.get_transformed_position();
         const [stageWidth, stageHeight] = actor.get_transformed_size();
         const x = Math.ceil((stageX - layout.x) * scale);
@@ -60,9 +89,26 @@ export const RoundedClip = GObject.registerClass(class RoundedClip extends Clutt
             this._key = key;
         }
         framebuffer.push_region_clip(this._region);
+        if (sourceClip) {
+            const left = Math.ceil((sourceClip[0] - layout.x) * scale);
+            const top = Math.ceil((sourceClip[1] - layout.y) * scale);
+            const right = Math.floor((sourceClip[2] - layout.x) * scale);
+            const bottom = Math.floor((sourceClip[3] - layout.y) * scale);
+            const rect = {x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, bottom - top)};
+            const region = Mtk ? Mtk.Region.create() : new Cairo.Region();
+            if (rect.width > 0 && rect.height > 0) {
+                if (Mtk)
+                    region.union_rectangle(new Mtk.Rectangle(rect));
+                else
+                    region.unionRectangle(rect);
+            }
+            framebuffer.push_region_clip(region);
+        }
         try {
             actor.continue_paint(context);
         } finally {
+            if (sourceClip)
+                framebuffer.pop_clip();
             framebuffer.pop_clip();
         }
     }

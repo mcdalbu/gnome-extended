@@ -42,7 +42,7 @@ export function opacityFraction(value, maximum = 100) {
 }
 
 export function applyBlurParameters(effect, radiusProperty, radius, scale, brightness = 85) {
-    const physicalRadius = radius * scale;
+    const physicalRadius = Math.round(radius * scale);
     effect[radiusProperty] = radiusProperty === 'radius' ? physicalRadius : physicalRadius / 2;
     effect.brightness = opacityFraction(brightness);
 }

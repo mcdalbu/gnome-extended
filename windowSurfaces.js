@@ -7,9 +7,10 @@ import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import {loadBlurBackend, applyBlurParameters, applyBlurRate} from './blurBackend.js';
+import {loadBlurBackend} from './blurBackend.js';
 import {BlurRedrawGuard} from './blurRedrawGuard.js';
 import {FrameSignals} from './frameSignals.js';
+import {syncBackdropCapture, updateCaptureAppearance} from './backdropCapture.js';
 import {RoundedClip} from './roundedClip.js';
 import {Signals} from './signals.js';
 import {boundsIntersect, windowDamage} from './windowDamage.js';
@@ -34,26 +35,6 @@ function isPtyxis(window) {
 const BlurSource = GObject.registerClass(class BlurSource extends Clutter.Effect {
     vfunc_paint(_node, context, _flags) {
         this.get_actor().continue_paint(context);
-    }
-});
-
-const CaptureView = GObject.registerClass(class CaptureView extends Clutter.Effect {
-    vfunc_paint(_node, context, _flags) {
-        // A sibling backdrop must never paint independently of its owner,
-        // including the frame before a queued focus/restack update runs.
-        if (!this.owner.mapped || !this.owner.visible || this.owner.opacity === 0 ||
-            this.owner.get_parent() !== this.backdrop.get_parent() ||
-            this.owner.get_previous_sibling() !== this.backdrop)
-            return;
-        // PaintContext.get_stage_view() is not introspectable in Mutter.
-        // The framebuffer identifies the view without a private GI call.
-        const framebuffer = context.get_framebuffer();
-        const onStage = this.get_actor().peek_stage_views()
-            .some(view => view.get_framebuffer() === framebuffer);
-        // Screenshots can paint into a separate framebuffer. Keep one capture
-        // in that path, rather than omitting blur or drawing every view twice.
-        if (framebuffer === this.view.get_framebuffer() || (!onStage && this.primary))
-            this.get_actor().continue_paint(context);
     }
 });
 
@@ -370,80 +351,12 @@ export class WindowSurfaces {
             state.actor.remove_effect(state.source);
             state.source = null;
         }
-        for (const capture of state.captures.values()) {
-            const scale = capture.view.get_scale();
-            const appearance = `${this._radius}:${scale}:${this._brightness}:${this._rate}`;
-            if (capture.appearance === appearance)
-                continue;
-            // Radius properties use integer framebuffer pixels; round rather
-            // than truncate fractional scales (e.g. 30 * 1.8 is nearly 54).
-            applyBlurParameters(capture.effect, radiusProperty,
-                Math.round(this._radius * scale), 1, this._brightness);
-            applyBlurRate(capture.effect, this._rate);
-            capture.appearance = appearance;
-        }
+        updateCaptureAppearance(state, radiusProperty, this._radius, this._brightness, this._rate);
     }
 
     _syncCapture(state, view = null) {
-        // A view owns a physical-pixel sampling grid and its own effect/cache.
-        // Sharing a logical grid, or changing one capture between differently
-        // scaled views, shifts the blur phase during movement.
-        if (!view) {
-            for (const stageView of state.blur.peek_stage_views())
-                this._syncCapture(state, stageView);
-            return;
-        }
-        const [x, y] = state.blur.get_transformed_position();
-        const [width, height] = state.blur.get_transformed_size();
-        const scaleX = width / state.blur.width;
-        const scaleY = height / state.blur.height;
-        if (!(scaleX > 0 && scaleY > 0))
-            return;
-        const layout = view.layout;
-        if (x >= layout.x + layout.width || x + width <= layout.x ||
-            y >= layout.y + layout.height || y + height <= layout.y)
-            return;
-        let capture = state.captures.get(view);
-        if (!capture) {
-            const actor = new St.Widget({name: 'gnome-extended-window-capture', reactive: false,
-                style: 'background-color: transparent;'});
-            const onlyView = new CaptureView();
-            onlyView.view = view;
-            onlyView.primary = state.captures.size === 0;
-            onlyView.owner = state.actor;
-            onlyView.backdrop = state.blur;
-            actor.add_effect_with_name('gnome-extended-capture-view', onlyView);
-            const effect = new Backend.BlurEffect({mode: Backend.BlurMode.BACKGROUND});
-            actor.add_effect_with_name('gnome-extended-window-blur', effect);
-            state.blur.add_child(actor);
-            capture = {actor, effect, view};
-            state.captures.set(view, capture);
-            state.capture ??= actor;
-            state.effect ??= effect;
-            this._applyEffect(state);
-        }
-        const scale = view.get_scale();
-        const tile = 64;
-        const padding = Math.ceil(3 * this._radius * scale);
-        const left = Math.floor(((x - layout.x) * scale - padding) / tile) * tile;
-        const top = Math.floor(((y - layout.y) * scale - padding) / tile) * tile;
-        // Reserve an extra tile for the offset from the window to the grid.
-        // Constant capture dimensions prevent backend downscale thresholds
-        // and FBO allocations from changing while a window only moves.
-        const right = left + (Math.ceil((width * scale + 2 * padding) / tile) + 1) * tile;
-        const bottom = top + (Math.ceil((height * scale + 2 * padding) / tile) + 1) * tile;
-        const geometry = `${left}:${top}:${right}:${bottom}:${x}:${y}:${scaleX}:${scaleY}:${scale}`;
-        if (capture.geometry === geometry)
-            return;
-        capture.geometry = geometry;
-        // Stay just inside the integer capture box: float transforms must not
-        // make the backend's outward rounding add a whole source pixel.
-        const inset = 1 / 256;
-        capture.actor.set_position((layout.x + (left + inset) / scale - x) / scaleX,
-            (layout.y + (top + inset) / scale - y) / scaleY);
-        capture.actor.set_size((right - left - 2 * inset) / scale / scaleX,
-            (bottom - top - 2 * inset) / scale / scaleY);
-        capture.effect.queue_repaint();
+        syncBackdropCapture(state, view, Backend, radiusProperty,
+            this._radius, this._brightness, this._rate, state.actor);
     }
 
     _updateWindow(state, opaque = this._blurWindows && state.normal && this._isOpaque(state)) {

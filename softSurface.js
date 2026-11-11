@@ -14,6 +14,8 @@ import {loadBlurBackend, applyBlurParameters, applyBlurRate, opacityFraction} fr
 import {BlurRedrawGuard} from './blurRedrawGuard.js';
 import {Signals} from './signals.js';
 import {FrameSignals} from './frameSignals.js';
+import {syncBackdropCapture, updateCaptureAppearance} from './backdropCapture.js';
+import {RoundedClip} from './roundedClip.js';
 import {PanelOpacity} from './panelOpacity.js';
 import {boundsIntersect, windowDamage} from './windowDamage.js';
 
@@ -59,6 +61,11 @@ export class SoftSurface {
                 style: 'background-color: transparent;',
             });
             this._group.add_child(this._blur);
+            this._clip = new RoundedClip();
+            if (options.plain)
+                this._clip.clipSource = menu.box;
+            this._blur.add_effect_with_name('gnome-extended-backdrop-clip', this._clip);
+            this._captureState = {blur: this._blur, captures: new Map()};
             if (options.dock) {
                 // dash-background is separate from the dock's icon container.
                 // Fade its complete theme paint, including images and shadows.
@@ -132,6 +139,16 @@ export class SoftSurface {
             });
             const anchor = options.anchor ?? menu.actor;
             anchor.get_parent().insert_child_below(this._group, anchor);
+            if (options.plain) {
+                // The slider keeps the dock mapped and changes its clip in
+                // allocation. Observe those ancestors independently of paint.
+                for (let source = menu.box; source && source !== this._group.get_parent(); source = source.get_parent()) {
+                    for (const property of ['allocation', 'clip-rect', 'has-clip', 'opacity', 'mapped'])
+                        this._signals.connect(source, `notify::${property}`, () => {
+                            this._queueDockSync();
+                        });
+                }
+            }
             this._replaceEffect();
 
             // PopupMenu raises itself on open. Raise the separate backdrop with
@@ -185,12 +202,13 @@ export class SoftSurface {
             };
             this._signals.connect(menu.actor, 'notify::mapped', syncMapping);
             if (menu.box !== menu.actor) {
-                this._signals.connect(menu.box, 'notify::mapped', () => {
-                    if (menu.box.mapped && !this._themeColor)
-                        syncMapping();
-                });
+                this._signals.connect(menu.box, 'notify::mapped', syncMapping);
             }
             this._signals.connect(menu.actor, 'notify::opacity', () => this._syncVisibility());
+            this._signals.connect(Main.layoutManager, 'monitors-changed', () => {
+                this._replaceEffect();
+                this._queueRepaint();
+            });
             this._signals.connect(this._context, 'changed', () => {
                 this._themeColor = null;
                 if (menu.actor.mapped && menu.box.mapped)
@@ -239,7 +257,7 @@ export class SoftSurface {
             // During opening, give the moving BoxPointer backdrop an
             // allocation before the first paint, including the initial
             // frame before the box reports its animated opacity.
-            if (opening)
+            if (opening || this._options.dock)
                 this._syncGeometry(false);
             // A zero-radius effect paints only the actor, without sampling
             // the framebuffer. Keep partial redraws during that phase.
@@ -248,9 +266,13 @@ export class SoftSurface {
             else
                 this._guard.end();
             if (this._blur.mapped && GLib.get_monotonic_time() < this._styleUntil)
-                this._effect.queue_repaint();
+                this._repaintEffects();
         });
-        this._frames.connect(global.stage, 'before-paint', () => this._syncGeometry());
+        this._frames.connect(global.stage, 'before-paint', (_stage, view) => {
+            this._syncGeometry();
+            if (this._blur.visible)
+                this._syncCapture(view);
+        });
         this._frames.connect(global.stage, 'after-update', () => {
             this._blurBounds = null;
             this._guard.end();
@@ -259,13 +281,15 @@ export class SoftSurface {
 
     _replaceEffect() {
         this._guard.end();
-        if (this._effect)
-            this._blur.remove_effect(this._effect);
+        for (const capture of this._captureState.captures.values())
+            capture.actor.destroy();
+        this._captureState.captures.clear();
+        this._captureState.capture = null;
         const properties = BlurBackend.BlurEffect.list_properties().map(property => property.name);
         this._radiusProperty = properties.includes('radius') ? 'radius' : 'sigma';
         this._hasCorners = properties.includes('corner-radius');
         this._effect = new BlurBackend.BlurEffect({mode: BlurBackend.BlurMode.BACKGROUND});
-        this._blur.add_effect_with_name('gnome-extended-blur', this._effect);
+        this._captureState.effect = this._effect;
         this._needsEffect = false;
         this._updateEffect();
     }
@@ -282,11 +306,15 @@ export class SoftSurface {
         // BACKGROUND effects composite at full opacity, independently of the
         // actor's paint opacity. Animate the actual filter from an unchanged
         // background to the configured blur, not just its containing actor.
-        const fade = this._panelFade?.value ?? this._dockFade?.value ?? 1;
-        const scale = this._context.scale_factor;
+        const fade = this._paintFade();
+        const scale = this._captureState.captures.values().next().value?.view.get_scale() ?? this._context.scale_factor;
         applyBlurParameters(this._effect, this._radiusProperty,
             this._settings.get_int('blur-radius') * fade, scale,
             100 + (this._settings.get_int('brightness') - 100) * fade);
+        updateCaptureAppearance(this._captureState, this._radiusProperty,
+            this._settings.get_int('blur-radius') * fade,
+            100 + (this._settings.get_int('brightness') - 100) * fade,
+            this._settings.get_int('blur-rate'));
         if (this._panelCover) {
             const color = Main.layoutManager.overviewGroup.get_theme_node().get_background_color();
             const brightness = this._effect.brightness;
@@ -307,22 +335,55 @@ export class SoftSurface {
     _cornerRadius() {
         if (!this._themeCorners)
             this._readThemeCorners();
-        // The backend exposes one radius. A conservative clip also stays
+        // A conservative clip stays
         // inside surfaces whose theme defines different corner radii.
         return Math.max(...this._themeCorners);
     }
 
     _updateEffectCorners() {
-        if (!this._hasCorners)
-            return;
         const {box} = this.menu;
         const {width, height} = this._blur;
         const transformScale = box.width > 0 && box.height > 0
             ? Math.min(width / box.width, height / box.height) : 1;
-        const radius = Math.round(Math.max(0, Math.min(this._cornerRadius() * transformScale,
-            width / 2, height / 2)));
-        if (this._effect.corner_radius !== radius)
-            this._effect.corner_radius = radius;
+        this._clip.radius = Math.max(0, Math.min(this._cornerRadius() * transformScale,
+            width / 2, height / 2));
+    }
+
+    _syncCapture(view = null) {
+        const fade = this._paintFade();
+        syncBackdropCapture(this._captureState, view, BlurBackend, this._radiusProperty,
+            this._settings.get_int('blur-radius') * fade,
+            100 + (this._settings.get_int('brightness') - 100) * fade,
+            this._settings.get_int('blur-rate'));
+    }
+
+    _paintFade() {
+        if (this._panelFade)
+            return this._panelFade.value;
+        if (!this._options.plain)
+            return 1;
+        // BACKGROUND effects composite independently of actor opacity. Fade
+        // their actual filter to the unchanged framebuffer during Shell fades.
+        let fade = this.menu.box.get_paint_opacity() / 255;
+        if (this._options.dock) {
+            const [x, y] = this.menu.box.get_transformed_position();
+            const [width, height] = this.menu.box.get_transformed_size();
+            if (width > 0 && height > 0) {
+                let area = 0;
+                for (const monitor of Main.layoutManager.monitors) {
+                    const w = Math.max(0, Math.min(x + width, monitor.x + monitor.width) - Math.max(x, monitor.x));
+                    const h = Math.max(0, Math.min(y + height, monitor.y + monitor.height) - Math.max(y, monitor.y));
+                    area += w * h;
+                }
+                fade *= Math.min(1, area / (width * height));
+            }
+        }
+        return fade;
+    }
+
+    _repaintEffects() {
+        for (const capture of this._captureState.captures.values())
+            capture.effect.queue_repaint();
     }
 
     _updatePanelTint() {
@@ -449,13 +510,27 @@ export class SoftSurface {
     }
 
     _syncVisibility() {
-        const active = this.menu.isOpen && this.menu.actor.mapped && !this._sleeping &&
+        let clipped = false;
+        if (this._options.plain) {
+            for (let source = this.menu.box; source; source = source.get_parent()) {
+                if (source.has_clip) {
+                    const [, , width, height] = source.get_clip();
+                    if (width <= 0 || height <= 0) {
+                        clipped = true;
+                        break;
+                    }
+                }
+            }
+        }
+        const active = this.menu.isOpen && this.menu.actor.mapped &&
+            (!this._options.plain || (this.menu.box.mapped && this.menu.box.get_paint_opacity() > 0)) && !this._sleeping &&
+            !clipped &&
             !Main.sessionMode.isLocked && !Main.screenShield?.active &&
             (this._options.blurEnabled?.() ?? true);
         const alpha = this._panelTint ? this._panelAlpha : opacityFraction(this._settings.get_int('opacity'));
         const opaque = active && alpha === 1 && (this._dockFade?.value ?? 1) === 1 &&
             this.menu.box.get_paint_opacity() === 255 &&
-            (this._hasCorners || this._cornerRadius() === 0) &&
+            (this._clip || this._cornerRadius() === 0) &&
             GLib.get_monotonic_time() >= this._opaqueUntil;
         const fade = this._panelFade?.value ?? this._dockFade?.value ?? 1;
         const visible = active && fade > 0 && (!!this._panelTint || !opaque);
@@ -463,6 +538,11 @@ export class SoftSurface {
         const wasVisible = this._group.visible && this._blur.visible;
         this._group.visible = !!visible;
         this._blur.visible = !!blurVisible;
+        if (wasVisible && !blurVisible) {
+            // A framebuffer blur may have painted beyond Clutter's reported
+            // damage bounds. Clear the final image once when hiding it.
+            global.stage.queue_redraw();
+        }
         this._syncFrames(!!visible);
         if (this._panelCover) {
             this._panelCover.opacity = Math.round(255 * (1 - this._panelReveal.value));
@@ -477,7 +557,8 @@ export class SoftSurface {
             this._guard.end();
         } else {
             if (!wasVisible) {
-                this._effect.invalidate?.();
+                for (const capture of this._captureState.captures.values())
+                    capture.effect.invalidate?.();
                 this._blurBounds = null;
                 this._stopWindowDamage = windowDamage.subscribe(bounds => {
                     if (!this._later && this._blur.mapped &&
@@ -535,7 +616,7 @@ export class SoftSurface {
         // Geometry may change in before-paint, after BEFORE_REDRAW callbacks.
         // Invalidate the capture for this frame, including the first open frame.
         if (this._blur.mapped)
-            this._effect.queue_repaint();
+            this._repaintEffects();
     }
 
     _queueRepaint() {
@@ -549,9 +630,27 @@ export class SoftSurface {
         });
     }
 
+    _queueDockSync() {
+        if (this._dockSyncLater || this._destroyed)
+            return;
+        // Allocation updates ancestors one at a time. Applying visibility or
+        // capturing between those notifications mixes two animation frames.
+        // Commit clip, geometry and capture together after layout has settled.
+        this._dockSyncLater = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._dockSyncLater = 0;
+            this._syncVisibility();
+            if (this._blur.visible) {
+                this._syncGeometry(false);
+                this._syncCapture();
+                this._repaint();
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
     _repaint() {
         this._blur.queue_redraw();
-        this._effect.queue_repaint();
+        this._repaintEffects();
     }
 
     // Share stage bounds across window events; geometry/settings and frame
@@ -628,6 +727,9 @@ export class SoftSurface {
         this._frames.clear();
         this._trackingFrames = false;
         this._signals.clear();
+        if (this._dockSyncLater)
+            global.compositor.get_laters().remove(this._dockSyncLater);
+        this._dockSyncLater = 0;
         for (const signals of this._children.values())
             signals.clear();
         this._stopWindowDamage?.();
@@ -640,9 +742,15 @@ export class SoftSurface {
         if (this._opaqueTimeout)
             GLib.Source.remove(this._opaqueTimeout);
         this._opaqueTimeout = 0;
+        const wasPainting = this._group?.visible;
         this._group?.destroy();
+        if (wasPainting)
+            global.stage.queue_redraw();
         this._group = null;
         this._blur = null;
+        this._captureState?.captures.clear();
+        this._captureState = null;
+        this._clip = null;
         this._panelTint = null;
         this._panelCover = null;
         this._effect = null;

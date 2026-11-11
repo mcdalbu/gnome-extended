@@ -2,7 +2,7 @@
 import time
 
 
-def test_docks(evaluate, check, results):
+def test_docks(evaluate, check, results, screenshot):
     check('dock-overview-default-enabled', 'soft._settings.get_boolean("dock-transparent-in-overview")')
     evaluate('soft._settings.set_boolean("dock-transparent-in-overview", false);')
     evaluate('''(() => {
@@ -50,6 +50,51 @@ def test_docks(evaluate, check, results):
     })''')
     evaluate('fixtureDocks[0].root.hide();')
     check('dock-hide', '!soft._docks._records.get(fixtureDocks[0].root).surface._group.visible')
+    sharp = screenshot('dock-hidden-reference')
+    evaluate('''globalThis.dockProbe = imports.gi.FrameProbe;
+        globalThis.dockPaintPixels = [];
+        globalThis.dockProbeId = global.stage.connect('after-paint', (_stage, view) => {
+            const layout = view.layout, scale = view.get_scale();
+            dockPaintPixels = Array.from(dockProbe.read(view.get_framebuffer(),
+                Math.round((100-layout.x)*scale), Math.round((755-layout.y)*scale), 80, 35).get_data());
+        }); testBackdrop.queue_redraw();''')
+    time.sleep(.2)
+    reference = evaluate('dockPaintPixels')
+    evaluate('''fixtureDocks[0].root.show(); fixtureDocks[0].root.ease({translation_y:100,
+        duration:400, onComplete:()=>fixtureDocks[0].root.set_clip(0,0,0,0)});''')
+    time.sleep(.8)
+    painted = evaluate('dockPaintPixels')
+    evaluate('global.stage.disconnect(dockProbeId); fixtureDocks[0].root.translation_y=-60;')
+    assert reference and len(reference) == len(painted)
+    error = sum(abs(a-b) for a,b in zip(reference,painted))/len(reference)
+    results['dock-autohide-framebuffer-error'] = error
+    assert error < 1, f'Blur left in displayed framebuffer after autohide: {error}'
+    evaluate('fixtureDocks[0].root.show(); fixtureDocks[0].root.set_clip(0, 0, 0, 0);')
+    time.sleep(.2)
+    check('dock-clipped-still-mapped', 'fixtureDocks[0].box.mapped')
+    hidden = screenshot('dock-zero-clip')
+    check('dock-zero-clip-hides-layer', '!soft._docks._records.get(fixtureDocks[0].root).surface._group.visible')
+    evaluate('fixtureDocks[0].root.set_clip(0, 0, 150, 70);')
+    time.sleep(.2)
+    partial = screenshot('dock-partial-clip')
+    evaluate('fixtureDocks[0].root.remove_clip();')
+    time.sleep(.2)
+    restored = screenshot('dock-clip-restored')
+    def difference(picture, left, right):
+        a, b = sharp.get_pixels(), picture.get_pixels()
+        stride, channels = sharp.get_rowstride(), sharp.get_n_channels()
+        values = [abs(a[y*stride+x*channels+c]-b[y*stride+x*channels+c])
+                  for y in range(755, 790) for x in range(left, right) for c in range(3)]
+        return sum(values)/len(values)
+    errors = [difference(hidden, 100, 400), difference(partial, 300, 400)]
+    results['dock-clipped-pixel-errors'] = errors
+    assert max(errors) < 1, f'Blur escaped the dock clip: {errors}'
+    assert difference(partial, 100, 190) > 1, 'Partially visible dock lost its backdrop'
+    assert difference(restored, 100, 400) > 1, 'Dock did not reappear after unclipping'
+    evaluate('fixtureDocks[0].box.hide();')
+    check('dock-background-hide', '!soft._docks._records.get(fixtureDocks[0].root).surface._group.visible')
+    evaluate('fixtureDocks[0].box.show();')
+    check('dock-background-show', 'soft._docks._records.get(fixtureDocks[0].root).surface._group.visible')
     evaluate('fixtureDocks[0].root.show(); soft._settings.set_boolean("docks", false);')
     check('dock-toggle-off', 'fixtureDocks.every(d => !soft._docks._records.get(d.root).surface && d.box.get_style() === d.original)')
     evaluate('soft._settings.set_boolean("docks", true);')

@@ -29,7 +29,7 @@ def test_surfaces(evaluate, check, screenshot, results):
         wait(f'alignedSoft(findSoft("{key}"))')
         check(f'{key}-native-corners-preserved', '(() => {const s=findSoft("__KEY__");return !s._boxSuffix.includes("border-radius") && [0,1,2,3].every(c=>s.menu.box.get_theme_node().get_border_radius(c)===nativeRadii[c]);})()'.replace('__KEY__', key))
         results[f'{key}-native-radii'] = evaluate('nativeRadii')
-        check(f'{key}-blur-corners-follow-theme', '(() => {const s=findSoft("__KEY__");if(!s._hasCorners)return true; const b=s.menu.box; const a=s._blur; const scale=Math.min(a.width/b.width,a.height/b.height);return s._effect.corner_radius===Math.round(Math.min(Math.max(...nativeRadii)*scale,a.width/2,a.height/2));})()'.replace('__KEY__', key))
+        check(f'{key}-blur-corners-follow-theme', '(() => {const s=findSoft("__KEY__"); const b=s.menu.box; const a=s._blur; const scale=Math.min(a.width/b.width,a.height/b.height);return Math.abs(s._clip.radius-Math.min(Math.max(...nativeRadii)*scale,a.width/2,a.height/2))<0.01;})()'.replace('__KEY__', key))
 
     evaluate('globalThis.findSoft = key => [...soft._shellSurfaces._records.values()]'
              '.find(r=>r.key===key && r.surface)?.surface; '
@@ -131,6 +131,21 @@ def test_surfaces(evaluate, check, screenshot, results):
     check('banner-discovered-and-aligned', 'alignedSoft(findSoft("notification-banners"))')
     check('banner-input-preserved', 'Main.messageTray._banner.reactive && Main.messageTray._banner.opacity===255')
     screenshot('surfaces-banner')
+    evaluate('''globalThis.bannerFadeFrames=[];
+        globalThis.bannerFadeProbe=global.stage.connect('after-paint',()=>{
+            const s=findSoft('notification-banners');
+            if(s) bannerFadeFrames.push({opacity:s.menu.box.get_paint_opacity(),
+                radius:s._effect[s._radiusProperty],visible:s._group.visible});
+        }); Main.messageTray._banner.ease({opacity:0,duration:350});''')
+    time.sleep(.6)
+    evaluate('global.stage.disconnect(bannerFadeProbe);')
+    check('banner-filter-follows-fade', '''bannerFadeFrames.some(f=>f.opacity>0&&f.opacity<255) &&
+        bannerFadeFrames.filter(f=>f.opacity>0&&f.opacity<255).every(f=>
+            Math.abs(f.radius-soft._settings.get_int('blur-radius')*f.opacity/255)<1.1)''')
+    check('banner-zero-opacity-hides-layer', '!findSoft("notification-banners")._group.visible')
+    evaluate('Main.messageTray._banner.opacity=255;')
+    time.sleep(.2)
+    check('banner-fade-restores-layer', 'findSoft("notification-banners")._group.visible')
     toggle('notification-banners')
     evaluate('testNotification.destroy();')
     time.sleep(0.5)

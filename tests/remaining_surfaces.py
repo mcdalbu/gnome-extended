@@ -28,7 +28,7 @@ def test_remaining(evaluate, check, screenshot, results):
         wait(f'alignedSoft(findSoft("{key}"))')
         check(f'{key}-native-corners-preserved', '(() => {const s=findSoft("__KEY__");return !s._boxSuffix.includes("border-radius") && [0,1,2,3].every(c=>s.menu.box.get_theme_node().get_border_radius(c)===nativeRadii[c]);})()'.replace('__KEY__', key))
         results[f'{key}-native-radii'] = evaluate('nativeRadii')
-        check(f'{key}-blur-corners-follow-theme', '(() => {const s=findSoft("__KEY__");if(!s._hasCorners)return true; const b=s.menu.box; const a=s._blur; const scale=Math.min(a.width/b.width,a.height/b.height);return s._effect.corner_radius===Math.round(Math.min(Math.max(...nativeRadii)*scale,a.width/2,a.height/2));})()'.replace('__KEY__', key))
+        check(f'{key}-blur-corners-follow-theme', '(() => {const s=findSoft("__KEY__"); const b=s.menu.box; const a=s._blur; const scale=Math.min(a.width/b.width,a.height/b.height);return Math.abs(s._clip.radius-Math.min(Math.max(...nativeRadii)*scale,a.width/2,a.height/2))<0.01;})()'.replace('__KEY__', key))
 
     check('remaining-options-default-off', '!["osd-windows","workspace-switcher","screenshot-ui","popup-menus","overview-background","lock-screen"].some(k=>soft._settings.get_boolean(k))')
     evaluate('["osd-windows","workspace-switcher","screenshot-ui","popup-menus"].forEach(k=>soft._settings.set_boolean(k,true));')

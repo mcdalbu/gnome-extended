@@ -44,7 +44,7 @@ export default class Helper extends Extension {
         env = dict(os.environ, SOFT_TEST_CHILD='1', XDG_DATA_HOME=str(base / 'data'),
                    XDG_CONFIG_HOME=str(base / 'config'), XDG_CACHE_HOME=str(base / 'cache'),
                    XDG_STATE_HOME=str(base / 'state'), XDG_RUNTIME_DIR=str(runtime))
-        if os.environ.get('SOFT_TEST_TERMINAL_MOTION'):
+        if os.environ.get('SOFT_TEST_TERMINAL_MOTION') or os.environ.get('SOFT_TEST_DOCK_FIXTURES'):
             from frame_probe import build_probe
             env.update(build_probe(base))
         if os.environ.get('SOFT_TEST_CUSTOM_SCALE'):
@@ -217,6 +217,13 @@ def test():
                     style:'font-size: 38px; font-weight: bold; color: white;'}));
             Main.uiGroup.insert_child_above(testBackdrop, global.window_group);
         })()''')
+        if os.environ.get('SOFT_TEST_UNIFORM_BLUR'):
+            from uniform_blur import test_uniform_blur
+            test_uniform_blur(evaluate, check, screenshot, results)
+            if os.environ['SOFT_TEST_UNIFORM_BLUR'] == 'only':
+                results['passed'] = True
+                print(json.dumps(results, indent=2))
+                return
         if os.environ.get('SOFT_TEST_SETTINGS_SIDEBAR'):
             from settings_sidebar import test_settings_sidebar
             test_settings_sidebar(evaluate, check, screenshot, results)
@@ -252,7 +259,8 @@ def test():
         check('app-grid-integrated', '!!soft._appGrid._file && soft._appGrid._css.includes("icon-shadow")')
         if os.environ.get('SOFT_TEST_DOCK_FIXTURES'):
             from dock_surfaces import test_docks
-            test_docks(evaluate, check, results)
+            test_docks(evaluate, check, results, screenshot)
+            assert 'JS ERROR' not in Path(log.name).read_text(), 'JavaScript error in dock test'
         check('two-surfaces', 'soft._surfaces.size === 2')
         evaluate('''globalThis.closedSurfaceCalls = 0;
             globalThis.restoreClosedSurfaces = [];
@@ -457,7 +465,7 @@ def test():
         # there: culling must never remove blur still visible around the fill.
         evaluate('globalThis.nativeCornerStyle=surface._originalBoxStyle; '
                  'soft._settings.set_int("opacity",100); '
-                 'if (!surface._hasCorners) { const style=(nativeCornerStyle??"").trim().replace(/;+$/,""); '
+                 'if (!surface._clip) { const style=(nativeCornerStyle??"").trim().replace(/;+$/,""); '
                  'surface.menu.box.set_style((style?style+"; ":"")+"border-radius:0;"); }')
         time.sleep(0.8)
         evaluate('global.stage.queue_redraw();')
@@ -510,7 +518,7 @@ def test():
         evaluate('soft._settings.set_int("opacity",35);')
         time.sleep(0.4)
         check('transparent-blur-restored', 'surface._group.visible && surface._blur.mapped')
-        if not evaluate('surface._hasCorners'):
+        if not evaluate('Boolean(surface._clip)'):
             evaluate('surface.menu.box.set_style(nativeCornerStyle); soft._settings.set_int("opacity",100);')
             time.sleep(0.8)
             evaluate('global.stage.queue_redraw();')

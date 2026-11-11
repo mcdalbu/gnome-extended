@@ -1,3 +1,54 @@
+# Validação da versão 34 — 11 de novembro de 2026
+
+- Backend nativo, GNOME Shell 51.1: suíte de superfícies e dock PASS. Banner real com fade animado: intensidade do filtro acompanha a opacidade em quadros intermediários, camada oculta em zero e restaurada ao reexibir.
+- Dock real: saída animada, alinhamento por quadro, camada oculta e reabertura PASS.
+- `make check` e `git diff --check`: PASS. O resultado perceptual no desktop do usuário ainda depende da confirmação após recarregar a sessão.
+
+# Validação da versão 33 — 11 de novembro de 2026
+
+- Animação real do dock em sessão isolada GNOME Shell 51.1: 18 quadros visíveis com diferença geométrica zero entre blur e fundo; camada oculta ao final e restaurada ao reabrir.
+- A regressão verifica quadros intermediários, encerramento e restauração. A confirmação perceptual do flicker no desktop do usuário continua necessária.
+
+# Validação da versão 32 — 11 de novembro de 2026
+
+- Dock real com GNOME Extended em sessão isolada: camada visível ao abrir, oculta ao terminar autohide e restaurada ao reabrir: PASS.
+- Backend nativo: regressão de movimento com leitura do framebuffer após a animação, recorte vazio ocultando a camada e recorte parcial: PASS; diferença no framebuffer igual a zero.
+- Testes usam GNOME Shell 51.1, escala 100%. A leitura do framebuffer evita depender exclusivamente de screenshots que podem redesenhar a cena.
+
+# Validação da versão 31 — 11 de novembro de 2026
+
+- Regressão gráfica do dock em sessões GNOME Shell/Mutter 51.1 isoladas, com GNOME Rounded Blur e Shell.BlurEffect nativo: PASS.
+- Dock mapeado com recorte vazio e parcial: diferença média de pixels fora da área visível igual a zero nos dois backends. Desativar a proteção no mesmo cenário reproduz o bloco de blur (diferença média de 20,71 níveis RGB).
+- Reaparecimento após remover o recorte, ocultação/reexibição apenas do fundo, movimento, transições do overview, restauração e limpeza: PASS.
+- Suíte de menus, preferências, reativação e redraw ocioso: PASS; nenhum JS ERROR nas sessões finais.
+- `make check` e `git diff --check`: PASS.
+
+Os recortes foram exercitados com fixtures do contrato de atores do dock, em escala 100%. Outras versões do GNOME e rotações 3D de docks não foram revalidadas.
+
+```sh
+SOFT_TEST_DOCK_FIXTURES=1 python3 tests/headless.py
+SOFT_TEST_DOCK_FIXTURES=1 SOFT_TEST_NATIVE=1 python3 tests/headless.py
+```
+
+# Validação da versão 30 — 11 de novembro de 2026
+
+- Comparação de pixels entre os caminhos de janelas e SoftSurface sobre o mesmo fundo, em raios 10, 30 e 60 e alturas 24 e 300: seis diferenças médias iguais a zero por backend, tanto em 100% quanto em 180%. O teste em 180% também confirma diferença em relação ao fundo nítido, evitando um falso positivo sem blur.
+- Backends GNOME Rounded Blur e Shell.BlurEffect nativo, no GNOME Shell/Mutter 51.1: menus, cantos, painel, dock, transições do filtro, brilho, opacidade de 100%, restauração, teardown, preferências e ausência de loop de redraw ocioso: PASS.
+- Regressão de janelas com backend opcional em 100%: geometria animada, oclusão, dano local, empilhamento, fechamento e overview: PASS.
+- Backend nativo, monitores de 100% e 180%, com Ptyxis real e arraste contínuo: PASS. Capturas independentes, estabilidade durante movimento, mudanças de escala e dono ocultado preservados; maior diferença média durante o movimento de 0,0125 níveis RGB.
+- `make check` e `git diff --check`: PASS.
+
+Os testes gráficos usam sessões privadas de D-Bus/Wayland e não alteram a configuração real de monitores. Os testes de comparação usam fundo e parâmetros iguais; cores diferentes de temas e aplicativos continuam produzindo aparências diferentes. GNOME 45–50 não foi revalidado nesta versão.
+
+A captura mínima necessária para padronizar a resolução aumenta o tamanho das texturas das superfícies finas. O custo cresce com o raio e a escala; não foi realizado benchmark de GPU.
+
+Reprodução da comparação isolada:
+
+```sh
+SOFT_TEST_UNIFORM_BLUR=only python3 tests/headless.py
+SOFT_TEST_UNIFORM_BLUR=only SOFT_TEST_NATIVE=1 SOFT_TEST_MONITOR=2880x1800 SOFT_TEST_SCALE=1.8 SOFT_TEST_CUSTOM_SCALE=1 python3 tests/headless.py
+```
+
 # Validação da versão 29 — 11 de novembro de 2026
 
 - Reproduzida a mudança de fase em arraste contínuo de um Ptyxis real sobre texto de outra janela GTK, com escala fracionária de 133⅓% (diferença média de até 1,85 níveis RGB na referência anterior).

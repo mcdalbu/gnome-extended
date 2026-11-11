@@ -1,3 +1,44 @@
+## Versão 34 — Saída das superfícies transitórias
+
+- O filtro dos banners e demais superfícies simples acompanha a opacidade realmente pintada. Reduz raio e alteração de brilho até o framebuffer original, pois efeitos BACKGROUND não obedecem apenas à opacidade do ator.
+- O dock reduz o filtro conforme sua área sai dos monitores.
+- Recorte, visibilidade e limpeza final passam a cobrir as superfícies simples compartilhadas. Destruição de uma camada visível solicita a limpeza da área pintada.
+- Regressão do banner real inclui quadros intermediários do fade, ocultação em opacidade zero e restauração.
+
+Saia da sessão e entre novamente após instalar a atualização.
+
+## Versão 33 — Sincronização da animação do dock
+
+- Alterações de alocação e recorte são reunidas antes do redesenho. Visibilidade, geometria e captura do blur são aplicadas após o layout completo, evitando capturas em posições intermediárias entre notificações do mesmo quadro.
+- O callback pendente é removido ao desativar a superfície.
+
+Saia da sessão e entre novamente após instalar a atualização.
+
+## Versão 32 — Ocultação completa do blur do dock
+
+- A camada de blur é ocultada quando o contêiner de deslizamento recebe um recorte vazio, mesmo com o dock ainda mapeado. Alterações de recorte e alocação reativam o acompanhamento ao reaparecer.
+- Um redesenho ao ocultar limpa a área anteriormente pintada. A geometria do blur do dock também é atualizada antes do cálculo de dano do quadro.
+- Regressão inclui leitura do framebuffer após movimento e ocultação, além de ocultação e restauração com o dock real.
+
+Saia da sessão e entre novamente após instalar a atualização.
+
+## Versão 31 — Blur acompanha a ocultação do dock
+
+- O blur respeita os recortes do fundo e dos contêineres do dock, inclusive o recorte vazio usado na ocultação automática. Isso evita uma camada de blur solta enquanto o dock permanece mapeado.
+- Recortes parciais são acompanhados durante a animação, preservando os cantos arredondados e o reaparecimento do fundo.
+- Ocultar ou reexibir apenas o fundo do dock também sincroniza imediatamente a visibilidade do blur.
+
+Instale `gnome-extended@local_v31.zip` com `gnome-extensions install --force` e saia da sessão e entre novamente.
+
+## Versão 30 — Blur uniforme entre janelas e superfícies do Shell
+
+- Janelas, menus, painel e dock passam a compartilhar a mesma captura por view, com raio arredondado em pixels físicos, grade fixa e margens iguais para o filtro.
+- A resolução de amostragem passa a depender do raio, evitando que uma barra fina e uma janela grande usem níveis diferentes de redução da textura. Isso amplia as capturas das superfícies menores, especialmente em raios altos.
+- Os cantos são recortados no framebuffer pelo mesmo mecanismo das janelas, inclusive no backend nativo. Textos e ícones continuam nítidos e as transições de blur e brilho são preservadas.
+- Opacidade continua sendo a porcentagem geral aplicada ao fundo. As cores de cada tema e aplicativo permanecem próprias, portanto cores diferentes ainda podem produzir percepções diferentes de transparência.
+
+Instale `gnome-extended@local_v30.zip` com `gnome-extensions install --force` e saia da sessão e entre novamente. Nenhuma alteração do backend opcional 1.0.2-4.local é necessária.
+
 ## Versão 29 — Blur adaptado à escala de cada monitor
 
 - A grade de amostragem passa a usar pixels físicos do framebuffer e a escala real da view. O movimento de um terminal sobre texto não desloca a fase do filtro em escalas fracionárias.
