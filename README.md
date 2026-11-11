@@ -1,7 +1,7 @@
 # GNOME Extended
 
 Blur e transparência para superfícies do GNOME Shell, integração com Dash to Dock
-e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão **28**.
+e forks, e sombra dos ícones da grade, dos docks e do Alt+Tab. Versão **29**.
 
 ## Configurações
 
@@ -38,7 +38,7 @@ migrada para os três switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v28.zip
+gnome-extensions install --force gnome-extended@local_v29.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua
@@ -114,8 +114,11 @@ A camada de blur acompanha os cantos arredondados do perfil GTK (janela de
 Arquivos: 15 px; menus: 12 px), sem fundo retangular fora do contorno. Janelas
 maximizadas usam cantos retos. Nos dois backends, o recorte da composição é
 aplicado diretamente no framebuffer, sem uma captura intermediária da janela.
-A captura do fundo usa uma grade fixa na tela, com margem para o filtro e tamanho
-constante durante o movimento, evitando cintilação em textos atrás do blur.
+A captura do fundo usa uma grade de pixels físicos por view, com margem para o
+filtro e tamanho constante durante o movimento. A escala real de cada monitor
+é consultada automaticamente, inclusive em escalas fracionárias e em janelas
+que atravessam monitores com escalas diferentes. Cada view mantém seu próprio
+efeito e cache; mudanças na configuração dos monitores recriam as capturas.
 
 ## Ptyxis
 

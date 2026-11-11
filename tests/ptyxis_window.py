@@ -66,8 +66,14 @@ def test_ptyxis(evaluate, check, screenshot, results):
         terminal_delta=difference(rect[0]+rect[2]-90,rect[1]+rect[3]-90)
         title_delta=difference(rect[0]+180,rect[1]+18)
         results['ptyxis-pixels']={'terminalChange':terminal_delta,'titlebarChange':title_delta}
-        assert terminal_delta>5, 'Terminal background must reveal the scene'
-        assert title_delta<1, 'Titlebar must remain opaque'
+        # A whole-stage screenshot has one output scale. On a mixed-scale
+        # layout the direct framebuffer probe below supplies the pixel checks.
+        if not os.environ.get('SOFT_TEST_MONITORS'):
+            assert terminal_delta>5, 'Terminal background must reveal the scene'
+            assert title_delta<1, 'Titlebar must remain opaque'
+        if os.environ.get('SOFT_TEST_TERMINAL_MOTION'):
+            from terminal_motion import test_terminal_motion
+            test_terminal_motion(evaluate, check, screenshot, results)
         evaluate('testBackdrop.show();soft._settings.set_int("opacity",72)')
         time.sleep(.2)
         check('ptyxis-shares-general-opacity', 'new imports.gi.Gio.Settings({schema_id:"org.gnome.Ptyxis.Profile",path:"/org/gnome/Ptyxis/Profiles/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"}).get_double("opacity")===.72')

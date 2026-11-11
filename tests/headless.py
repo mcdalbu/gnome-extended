@@ -44,6 +44,35 @@ export default class Helper extends Extension {
         env = dict(os.environ, SOFT_TEST_CHILD='1', XDG_DATA_HOME=str(base / 'data'),
                    XDG_CONFIG_HOME=str(base / 'config'), XDG_CACHE_HOME=str(base / 'cache'),
                    XDG_STATE_HOME=str(base / 'state'), XDG_RUNTIME_DIR=str(runtime))
+        if os.environ.get('SOFT_TEST_TERMINAL_MOTION'):
+            from frame_probe import build_probe
+            env.update(build_probe(base))
+        if os.environ.get('SOFT_TEST_CUSTOM_SCALE'):
+            # Stored profiles also permit custom fractional scales.
+            import xml.etree.ElementTree as ET
+            monitors = ET.Element('monitors', version='2')
+            configuration = ET.SubElement(monitors, 'configuration')
+            ET.SubElement(configuration, 'layoutmode').text = 'logical'
+            specs = os.environ.get('SOFT_TEST_MONITORS', os.environ['SOFT_TEST_MONITOR']).split(',')
+            scales = os.environ.get('SOFT_TEST_SCALES', os.environ['SOFT_TEST_SCALE']).split(',')
+            left = 0
+            for index, (spec, scale) in enumerate(zip(specs, scales)):
+                width, height = spec.split('x')
+                logical = ET.SubElement(configuration, 'logicalmonitor')
+                for key, value in [('x', left), ('y', 0), ('scale', scale), ('primary', 'yes' if index == 0 else 'no')]:
+                    ET.SubElement(logical, key).text = str(value)
+                monitor = ET.SubElement(logical, 'monitor')
+                identity = ET.SubElement(monitor, 'monitorspec')
+                for key, value in [('connector', f'Meta-{index}'), ('vendor', 'MetaVendor'),
+                                   ('product', 'MetaVirtualMonitor'), ('serial', f'0x{index:02x}')]:
+                    ET.SubElement(identity, key).text = value
+                mode = ET.SubElement(monitor, 'mode')
+                for key, value in [('width', width), ('height', height), ('rate', '60.000')]:
+                    ET.SubElement(mode, key).text = value
+                left += round(int(width) / float(scale))
+            config = base / 'config'
+            config.mkdir(exist_ok=True)
+            ET.ElementTree(monitors).write(config/'monitors.xml', encoding='unicode')
         env.pop('WAYLAND_DISPLAY', None)
         env.pop('DISPLAY', None)
         try:
@@ -71,6 +100,9 @@ def test():
     shell_settings.set_boolean('disable-user-extensions', False)
     shell_settings.set_string('welcome-dialog-last-shown-version', '999')
     Gio.Settings.new('org.gnome.desktop.notifications').set_boolean('show-banners', False)
+    Gio.Settings.new('org.gnome.desktop.interface').set_boolean('enable-hot-corners', False)
+    if os.environ.get('SOFT_TEST_TERMINAL_MOTION'):
+        Gio.Settings.new('org.gnome.mutter').set_boolean('edge-tiling', False)
     Gio.Settings.new('org.gnome.desktop.search-providers').set_boolean('disable-external', True)
     Gio.Settings.sync()
     output = ROOT / 'validation'
@@ -86,9 +118,14 @@ def test():
         variant += '-panel-blur'
     if os.environ.get('SOFT_TEST_PANEL_SCENE'):
         variant += '-panel-scene'
+    if os.environ.get('SOFT_TEST_SCALE'):
+        variant += '-scale-' + os.environ['SOFT_TEST_SCALE']
+    if os.environ.get('SOFT_TEST_MONITORS'):
+        variant += '-mixed'
     log = (output / f'{variant}-session.log').open('w')
+    monitor_specs = os.environ.get('SOFT_TEST_MONITORS', os.environ.get('SOFT_TEST_MONITOR', '1440x1000')).split(',')
     shell = subprocess.Popen(['gnome-shell', '--headless', '--wayland', '--no-x11',
-                              '--virtual-monitor=1440x1000'], stdout=log, stderr=log)
+                              *['--virtual-monitor=' + spec for spec in monitor_specs]], stdout=log, stderr=log)
     bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
 
     def evaluate(code):
@@ -119,7 +156,11 @@ def test():
             if time.monotonic() > deadline:
                 raise RuntimeError('Screenshot timed out')
             time.sleep(0.03)
-        return GdkPixbuf.Pixbuf.new_from_file(str(path))
+        pixels = GdkPixbuf.Pixbuf.new_from_file(str(path))
+        scale = float(os.environ.get('SOFT_TEST_SCALE', '1'))
+        if scale != 1:
+            pixels = pixels.scale_simple(round(pixels.get_width()/scale), round(pixels.get_height()/scale), GdkPixbuf.InterpType.BILINEAR)
+        return pixels
 
     try:
         for _ in range(100):
@@ -134,6 +175,32 @@ def test():
         else:
             raise RuntimeError('Extension did not enable; see validation/gnome50-session.log')
 
+        if os.environ.get('SOFT_TEST_SCALE'):
+            state = bus.call_sync('org.gnome.Mutter.DisplayConfig', '/org/gnome/Mutter/DisplayConfig',
+                                  'org.gnome.Mutter.DisplayConfig', 'GetCurrentState', None, None,
+                                  Gio.DBusCallFlags.NONE, 5000, None).unpack()
+            serial, monitors, logical, properties = state
+            connector = monitors[0][0][0]
+            mode = next(mode for mode in monitors[0][1] if mode[-1].get('is-current'))
+            results['display-layout'] = [{'x': m[0], 'y': m[1], 'scale': m[2]} for m in logical]
+            print('Monitor specs:', [(m[0], [v[:6] for v in m[1] if v[-1].get('is-current')]) for m in monitors], flush=True)
+            if os.environ.get('SOFT_TEST_SCALES'):
+                expected = [float(value) for value in os.environ['SOFT_TEST_SCALES'].split(',')]
+                assert len(logical) == len(expected)
+                assert all(abs(m[2]-scale)<.0001 for m,scale in zip(sorted(logical),expected)), results['display-layout']
+            requested_scale = float(os.environ['SOFT_TEST_SCALE'])
+            if abs(logical[0][2] - requested_scale) > .0001:
+                scale = min(mode[5], key=lambda value: abs(value-requested_scale))
+                assert abs(scale-requested_scale) < .02, 'Requested display scale unavailable'
+                bus.call_sync('org.gnome.Mutter.DisplayConfig', '/org/gnome/Mutter/DisplayConfig',
+                              'org.gnome.Mutter.DisplayConfig', 'ApplyMonitorsConfig',
+                              GLib.Variant('(uua(iiduba(ssa{sv}))a{sv})',
+                                           (serial, 1, [(0, 0, scale, 0, True, [(connector, mode[0], {})])],
+                                            {'layout-mode': GLib.Variant('u', 1)})),
+                              None, Gio.DBusCallFlags.NONE, 5000, None)
+            time.sleep(.5)
+            configured = bus.call_sync('org.gnome.Mutter.DisplayConfig', '/org/gnome/Mutter/DisplayConfig', 'org.gnome.Mutter.DisplayConfig', 'GetCurrentState', None, None, Gio.DBusCallFlags.NONE, 5000, None).unpack()
+            results['display-layout'] = [{'x': m[0], 'y': m[1], 'scale': m[2]} for m in configured[2]]
         evaluate('globalThis.soft = Main.extensionManager.lookup("gnome-extended@local").stateObj; Main.overview.hide();')
         evaluate('(async () => { globalThis.popupAnimation = '
                  '(await import("resource:///org/gnome/shell/ui/boxpointer.js")).PopupAnimation; })()')
@@ -156,6 +223,11 @@ def test():
         if os.environ.get('SOFT_TEST_PTYXIS'):
             from ptyxis_window import test_ptyxis
             test_ptyxis(evaluate, check, screenshot, results)
+            if os.environ.get('SOFT_TEST_TERMINAL_MOTION'):
+                assert 'JS ERROR' not in Path(log.name).read_text(), 'JavaScript error in compositor log'
+                results['passed'] = True
+                print(json.dumps(results, indent=2))
+                return
         if os.environ.get('SOFT_TEST_SIDEBAR'):
             from nautilus_sidebar import test_sidebar
             test_sidebar(evaluate, check, screenshot, results)

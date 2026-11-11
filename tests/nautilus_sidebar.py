@@ -19,7 +19,11 @@ def test_sidebar(evaluate, check, screenshot, results):
         soft._settings.set_boolean('windows-blur',true);''')
     assert (config / 'gtk.css').read_text().startswith(original)
     subprocess.run(['gsettings', 'set', 'org.gnome.desktop.interface', 'color-scheme', 'prefer-dark'], check=True)
-    client = subprocess.Popen(['nautilus', '--new-window', '/tmp'], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+    # Keep file contents fixed while other isolated tests create /tmp entries.
+    files = Path(os.environ['XDG_CACHE_HOME']) / 'nautilus-test-files'
+    files.mkdir(parents=True, exist_ok=True)
+    (files / 'Example.txt').write_text('Stable file-content fixture.\n')
+    client = subprocess.Popen(['nautilus', '--new-window', str(files)], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                               env=dict(os.environ, ADW_DISABLE_PORTAL='1', ADW_DEBUG_COLOR_SCHEME='prefer-light' if os.environ.get('SOFT_TEST_LIGHT') else 'prefer-dark'))
     try:
         for _ in range(100):

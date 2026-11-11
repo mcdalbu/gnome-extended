@@ -1,3 +1,21 @@
+# Validação da versão 29 — 11 de novembro de 2026
+
+- Reproduzida a mudança de fase em arraste contínuo de um Ptyxis real sobre texto de outra janela GTK, com escala fracionária de 133⅓% (diferença média de até 1,85 níveis RGB na referência anterior).
+- O teste lê o framebuffer após cada paint, sem solicitar screenshots durante o movimento. Mede também o contraste para garantir que a região esteja de fato desfocada e reprova erros JavaScript no compositor.
+- Matriz de 100%, 125%, 133⅓%, 150%, 166⅔%, 180% personalizado e 200%: PASS. Diferenças médias durante o movimento: zero ou abaixo de 0,005 níveis RGB.
+- Janela atravessando monitores de 100% e 180%, com capturas independentes: PASS nos backends opcional e nativo; maior diferença média de 0,0125 níveis RGB. Sem mudança de geometria parada e sem loop de redraw ocioso.
+- Mudança de escala com o terminal já aberto (180% → 125% → 200%): capturas recriadas, views atuais, raio físico arredondado correto: PASS.
+- Foco alternado com uma janela GTK sem blur; camada deslocada deliberadamente sem mudar a ordem dos WindowActors; dono ocultado em before-paint: PASS nos dois backends. O texto fica nítido quando o dono some (contraste ~78–83 níveis RGB), sem camada órfã, e o blur volta ao mostrar a janela.
+- Regressões de janelas, geometria, dano local, empilhamento, ciclo de vida e preferências; Nautilus real com cantos preservados e conteúdo opaco: PASS. `make check` e `git diff --check`: PASS.
+
+Resultados em `validation/gnome50*-scale-*-results.json` e `validation/gnome50-native-results.json` (prefixo histórico do harness). As escalas são configuradas apenas em sessões GNOME Shell/Wayland privadas; a configuração de monitores da sessão real não é alterada. As escalas validadas são uma matriz representativa: o código usa a escala da view em execução, sem uma lista fixa de escalas suportadas.
+
+O teste opcional de arraste requer compilador C e `g-ir-scanner`/`g-ir-compiler`, além das dependências gráficas habituais. Exemplo:
+
+```sh
+SOFT_TEST_MONITOR=2880x1800 SOFT_TEST_SCALE=1.8 SOFT_TEST_CUSTOM_SCALE=1 SOFT_TEST_PTYXIS=1 SOFT_TEST_TERMINAL_MOTION=1 python3 tests/headless.py
+```
+
 # Validação da versão 28 — 11 de novembro de 2026
 
 - Reproduzida a cintilação em texto preto de 16 px sobre fundo branco, atrás da lateral transparente de uma janela de 700 × 550: diferenças médias de 1,30 / 1,15 / 2,53 níveis RGB repetiam a cada quatro pixels de movimento.

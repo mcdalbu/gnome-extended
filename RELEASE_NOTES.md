@@ -1,3 +1,14 @@
+## Versão 29 — Blur adaptado à escala de cada monitor
+
+- A grade de amostragem passa a usar pixels físicos do framebuffer e a escala real da view. O movimento de um terminal sobre texto não desloca a fase do filtro em escalas fracionárias.
+- Capturas, parâmetros e caches independentes por view permitem atravessar monitores com escalas diferentes. A integração recria as capturas ao mudar a configuração dos monitores, inclusive com a janela já aberta.
+- O raio é convertido e arredondado para pixels físicos da própria view. Uma pequena margem numérica impede que a precisão dos transforms acrescente um pixel à captura.
+- Corrigida a possibilidade de uma camada de blur ficar sobre outra janela após mudança de foco. A verificação de empilhamento inclui a posição da camada injetada, mesmo quando a ordem dos atores de janela não muda.
+- Uma camada sem o dono visível e imediatamente acima dela não é pintada, inclusive antes da atualização de foco ou visibilidade agendada.
+- A regressão gráfica usa um Ptyxis real, uma segunda janela GTK com texto e arraste contínuo por ponteiro virtual. O teste lê o framebuffer já pintado, verifica que o texto está de fato desfocado e mede a estabilidade durante o movimento.
+
+Instale `gnome-extended@local_v29.zip` com `gnome-extensions install --force` e saia da sessão e entre novamente. Nenhuma alteração do backend opcional 1.0.2-4.local é necessária.
+
 ## Versão 28 — Estabilidade de textos atrás do blur
 
 - Corrigida a cintilação de texto e detalhes finos atrás de uma janela transparente em movimento. A captura do blur agora usa uma grade fixa na tela, em vez de deslocar a fase de amostragem com a janela.

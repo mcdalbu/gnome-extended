@@ -37,6 +37,26 @@ const BlurSource = GObject.registerClass(class BlurSource extends Clutter.Effect
     }
 });
 
+const CaptureView = GObject.registerClass(class CaptureView extends Clutter.Effect {
+    vfunc_paint(_node, context, _flags) {
+        // A sibling backdrop must never paint independently of its owner,
+        // including the frame before a queued focus/restack update runs.
+        if (!this.owner.mapped || !this.owner.visible || this.owner.opacity === 0 ||
+            this.owner.get_parent() !== this.backdrop.get_parent() ||
+            this.owner.get_previous_sibling() !== this.backdrop)
+            return;
+        // PaintContext.get_stage_view() is not introspectable in Mutter.
+        // The framebuffer identifies the view without a private GI call.
+        const framebuffer = context.get_framebuffer();
+        const onStage = this.get_actor().peek_stage_views()
+            .some(view => view.get_framebuffer() === framebuffer);
+        // Screenshots can paint into a separate framebuffer. Keep one capture
+        // in that path, rather than omitting blur or drawing every view twice.
+        if (framebuffer === this.view.get_framebuffer() || (!onStage && this.primary))
+            this.get_actor().continue_paint(context);
+    }
+});
+
 // A sibling backdrop samples only the windows below this one. Blurring the
 // window actor itself would also blur its text and controls.
 export class WindowSurfaces {
@@ -75,27 +95,40 @@ export class WindowSurfaces {
                 this._queueUpdate();
             }
         };
-        this._signals.connect(global.display, 'restacked', () => {
+        const restack = () => {
             if (this._windows.size) {
                 this._stackPending = true;
                 this._queueUpdate();
             }
-        });
+        };
+        this._signals.connect(global.display, 'restacked', restack);
+        this._signals.connect(global.display, 'notify::focus-window', restack);
         this._signals.connect(Main.overview, 'showing', refresh);
         this._signals.connect(Main.overview, 'hidden', refresh);
         this._signals.connect(Main.sessionMode, 'updated', refresh);
         this._signals.connect(global.workspace_manager, 'active-workspace-changed', refresh);
         this._context = St.ThemeContext.get_for_stage(global.stage);
         this._signals.connect(this._context, 'notify::scale-factor', () => this.sync());
+        this._signals.connect(Main.layoutManager, 'monitors-changed', () => {
+            for (const state of this._windows.values()) {
+                for (const capture of state.captures.values())
+                    capture.actor.destroy();
+                state.captures.clear();
+                state.capture = null;
+                state.effect = null;
+            }
+            this._refreshAll();
+            this._queueUpdate();
+        });
         this._frames.connect(global.stage, 'before-update', (_stage, view) => {
             if (this._radius === 0 && this._brightness === 100)
                 return;
             for (const state of this._visible)
                 state.guard.begin(state.blur, view);
         });
-        this._frames.connect(global.stage, 'before-paint', () => {
+        this._frames.connect(global.stage, 'before-paint', (_stage, view) => {
             for (const state of this._visible)
-                this._syncCapture(state);
+                this._syncCapture(state, view);
         });
         this._frames.connect(global.stage, 'after-update', () => {
             for (const state of this._visible)
@@ -168,7 +201,7 @@ export class WindowSurfaces {
 
     _track(actor, window, menu, normal) {
         const state = {actor, window, menu, normal, signals: new Signals(),
-            guard: new BlurRedrawGuard(Clutter, Meta), blur: null};
+            guard: new BlurRedrawGuard(Clutter, Meta), blur: null, captures: new Map()};
         this._windows.set(actor, state);
         const refresh = () => {
             this._dirty.add(state);
@@ -222,9 +255,12 @@ export class WindowSurfaces {
         if (!refreshAll) {
             for (const [actor, placement] of stack) {
                 const previous = this._stack.get(actor);
-                if (previous?.group === placement.group && previous.index === placement.index)
-                    continue;
                 const state = this._windows.get(actor);
+                const paired = !state?.blur?.visible || actor.get_previous_sibling() === state.blur;
+                // Mutter restacks window actors while our injected siblings
+                // can move relative to them without changing window indices.
+                if (previous?.group === placement.group && previous.index === placement.index && paired)
+                    continue;
                 if (state) {
                     dirty.add(state);
                 } else {
@@ -280,13 +316,16 @@ export class WindowSurfaces {
     _repaintAffected(exposed, repaint = null, restacked = false) {
         for (const state of this._visible) {
             if (restacked || repaint?.has(state)) {
-                state.effect.queue_repaint();
+                for (const capture of state.captures.values())
+                    capture.effect.queue_repaint();
                 continue;
             }
             const margin = Math.max(64, 3 * this._radius) * this._scale *
                 Math.max(1, state.actor.scale_x, state.actor.scale_y);
-            if (state.blurBounds && exposed.some(bounds => boundsIntersect(bounds, state.blurBounds, margin)))
-                state.effect.queue_repaint();
+            if (state.blurBounds && exposed.some(bounds => boundsIntersect(bounds, state.blurBounds, margin))) {
+                for (const capture of state.captures.values())
+                    capture.effect.queue_repaint();
+            }
         }
     }
 
@@ -331,42 +370,80 @@ export class WindowSurfaces {
             state.actor.remove_effect(state.source);
             state.source = null;
         }
-        const appearance = `${this._radius}:${this._scale}:${this._brightness}:${this._rate}`;
-        if (state.appearance === appearance)
-            return;
-        applyBlurParameters(state.effect, radiusProperty, this._radius, this._scale, this._brightness);
-        applyBlurRate(state.effect, this._rate);
-        state.appearance = appearance;
+        for (const capture of state.captures.values()) {
+            const scale = capture.view.get_scale();
+            const appearance = `${this._radius}:${scale}:${this._brightness}:${this._rate}`;
+            if (capture.appearance === appearance)
+                continue;
+            // Radius properties use integer framebuffer pixels; round rather
+            // than truncate fractional scales (e.g. 30 * 1.8 is nearly 54).
+            applyBlurParameters(capture.effect, radiusProperty,
+                Math.round(this._radius * scale), 1, this._brightness);
+            applyBlurRate(capture.effect, this._rate);
+            capture.appearance = appearance;
+        }
     }
 
-    _syncCapture(state) {
-        // Keep the downsample lattice in screen coordinates. A window-local
-        // capture shifts its sampling phase at every pixel of movement, making
-        // fine text shimmer. Whole tiles also keep texture sizes divisible by
-        // the backend's power-of-two downscale factors. Padding keeps the blur
-        // kernel away from capture edges; the outer actor clips the result.
+    _syncCapture(state, view = null) {
+        // A view owns a physical-pixel sampling grid and its own effect/cache.
+        // Sharing a logical grid, or changing one capture between differently
+        // scaled views, shifts the blur phase during movement.
+        if (!view) {
+            for (const stageView of state.blur.peek_stage_views())
+                this._syncCapture(state, stageView);
+            return;
+        }
         const [x, y] = state.blur.get_transformed_position();
         const [width, height] = state.blur.get_transformed_size();
         const scaleX = width / state.blur.width;
         const scaleY = height / state.blur.height;
         if (!(scaleX > 0 && scaleY > 0))
             return;
+        const layout = view.layout;
+        if (x >= layout.x + layout.width || x + width <= layout.x ||
+            y >= layout.y + layout.height || y + height <= layout.y)
+            return;
+        let capture = state.captures.get(view);
+        if (!capture) {
+            const actor = new St.Widget({name: 'gnome-extended-window-capture', reactive: false,
+                style: 'background-color: transparent;'});
+            const onlyView = new CaptureView();
+            onlyView.view = view;
+            onlyView.primary = state.captures.size === 0;
+            onlyView.owner = state.actor;
+            onlyView.backdrop = state.blur;
+            actor.add_effect_with_name('gnome-extended-capture-view', onlyView);
+            const effect = new Backend.BlurEffect({mode: Backend.BlurMode.BACKGROUND});
+            actor.add_effect_with_name('gnome-extended-window-blur', effect);
+            state.blur.add_child(actor);
+            capture = {actor, effect, view};
+            state.captures.set(view, capture);
+            state.capture ??= actor;
+            state.effect ??= effect;
+            this._applyEffect(state);
+        }
+        const scale = view.get_scale();
         const tile = 64;
-        const padding = Math.ceil(3 * this._radius);
-        const left = Math.floor((x - padding) / tile) * tile;
-        const top = Math.floor((y - padding) / tile) * tile;
+        const padding = Math.ceil(3 * this._radius * scale);
+        const left = Math.floor(((x - layout.x) * scale - padding) / tile) * tile;
+        const top = Math.floor(((y - layout.y) * scale - padding) / tile) * tile;
         // Reserve an extra tile for the offset from the window to the grid.
         // Constant capture dimensions prevent backend downscale thresholds
         // and FBO allocations from changing while a window only moves.
-        const right = left + (Math.ceil((width + 2 * padding) / tile) + 1) * tile;
-        const bottom = top + (Math.ceil((height + 2 * padding) / tile) + 1) * tile;
-        const geometry = `${left}:${top}:${right}:${bottom}:${x}:${y}:${scaleX}:${scaleY}`;
-        if (state.captureGeometry === geometry)
+        const right = left + (Math.ceil((width * scale + 2 * padding) / tile) + 1) * tile;
+        const bottom = top + (Math.ceil((height * scale + 2 * padding) / tile) + 1) * tile;
+        const geometry = `${left}:${top}:${right}:${bottom}:${x}:${y}:${scaleX}:${scaleY}:${scale}`;
+        if (capture.geometry === geometry)
             return;
-        state.captureGeometry = geometry;
-        state.capture.set_position((left - x) / scaleX, (top - y) / scaleY);
-        state.capture.set_size((right - left) / scaleX, (bottom - top) / scaleY);
-        state.effect.queue_repaint();
+        capture.geometry = geometry;
+        // Stay just inside the integer capture box: float transforms must not
+        // make the backend's outward rounding add a whole source pixel.
+        const inset = 1 / 256;
+        capture.actor.set_position((layout.x + (left + inset) / scale - x) / scaleX,
+            (layout.y + (top + inset) / scale - y) / scaleY);
+        capture.actor.set_size((right - left - 2 * inset) / scale / scaleX,
+            (bottom - top - 2 * inset) / scale / scaleY);
+        capture.effect.queue_repaint();
     }
 
     _updateWindow(state, opaque = this._blurWindows && state.normal && this._isOpaque(state)) {
@@ -390,13 +467,8 @@ export class WindowSurfaces {
         if (!state.blur) {
             state.blur = new St.Widget({name: 'gnome-extended-window-blur', reactive: false,
                 style: 'background-color: transparent;'});
-            state.capture = new St.Widget({name: 'gnome-extended-window-capture', reactive: false,
-                style: 'background-color: transparent;'});
-            state.effect = new Backend.BlurEffect({mode: Backend.BlurMode.BACKGROUND});
             state.clip = new RoundedClip();
             state.blur.add_effect_with_name('gnome-extended-window-clip', state.clip);
-            state.capture.add_effect_with_name('gnome-extended-window-blur', state.effect);
-            state.blur.add_child(state.capture);
             parent.insert_child_below(state.blur, actor);
         }
         const previousParent = state.blur.get_parent();
