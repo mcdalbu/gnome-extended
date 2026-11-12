@@ -50,6 +50,19 @@ def test_panel_policy(evaluate, check, screenshot, results):
     evaluate('soft._settings.set_boolean("panel-enabled-dark",true);')
     wait('!!policyPanel()')
     check('panel-theme-dark-reenabled', 'policyPanel()._panelAlpha===0.55')
+    evaluate('globalThis.panelOriginalGeometry = [Main.panel.x, Main.panel.y, Main.panel.width, Main.panel.height]; '
+             'globalThis.panelOriginalBackdropHeight = policyPanel()._blur.height; '
+             'soft._settings.set_boolean("panel-extend-bottom",true);')
+    settle()
+    check('panel-extend-backdrop-one-pixel',
+          'Math.abs(policyPanel()._blur.height-panelOriginalBackdropHeight-1)<0.01 && '
+          '[policyPanel()._panelTint,policyPanel()._panelCover].every(a=>a.height===policyPanel()._blur.height)')
+    check('panel-extend-preserves-content-geometry',
+          '[Main.panel.x,Main.panel.y,Main.panel.width,Main.panel.height].every((v,i)=>v===panelOriginalGeometry[i])')
+    screenshot('panel-extended-bottom')
+    evaluate('soft._settings.set_boolean("panel-extend-bottom",false);')
+    settle()
+    check('panel-extend-restores-height', 'Math.abs(policyPanel()._blur.height-panelOriginalBackdropHeight)<0.01')
     evaluate('policyInterface.set_string("color-scheme","prefer-light");')
     wait('imports.gi.St.Settings.get().color_scheme===imports.gi.St.SystemColorScheme.PREFER_LIGHT && !policyPanel()')
     check('panel-theme-light-remains-disabled', '!policyPanel()')

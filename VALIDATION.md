@@ -1,3 +1,10 @@
+# Validação da versão 35 — 12 de novembro de 2026
+
+- `make check` e `git diff --check`: PASS.
+- Suíte de superfícies e opacidade da barra em sessão GNOME isolada: PASS.
+- Extensão de exatamente 1 px nas camadas de blur, cor e cobertura, preservação da geometria do painel e restauração ao desativar: PASS.
+- Preferências: posicionamento dos controles, bindings e restauração dos padrões: PASS.
+
 # Validação da versão 34 — 11 de novembro de 2026
 
 - Backend nativo, GNOME Shell 51.1: suíte de superfícies e dock PASS. Banner real com fade animado: intensidade do filtro acompanha a opacidade em quadros intermediários, camada oculta em zero e restaurada ao reexibir.

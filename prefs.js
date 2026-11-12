@@ -87,6 +87,8 @@ export default class GnomeExtendedPreferences extends ExtensionPreferences {
         const panelPage = page('panel', 'Barra superior', 'view-dual-symbolic');
         const panel = group(panelPage, 'Barra superior', 'Configurações da barra de relógio e indicadores.');
         toggle(panel, settings, 'top-panel', 'Blur e transparência na barra superior');
+        toggle(panel, settings, 'panel-extend-bottom', 'Estender o fundo em 1 px',
+            'Estende o fundo e o blur para baixo para cobrir a lacuna, sem mover os indicadores.', 'top-panel');
         const themes = group(panelPage, 'Por tema', 'Ao desativar um tema, a barra usa o visual padrão do GNOME.');
         for (const [key, title] of [
             ['panel-enabled-dark', 'Ativar no tema escuro'],

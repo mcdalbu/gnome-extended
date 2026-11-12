@@ -11,9 +11,9 @@ schema = ET.parse(root / 'schemas' / f"{metadata['settings-schema']}.gschema.xml
 assert schema.attrib['id'] == metadata['settings-schema']
 assert schema.attrib['path'] == '/org/gnome/shell/extensions/gnome-shell-soft/'
 keys = {key.attrib['name']: key for key in schema}
-assert set(keys) == {'windows-settings-sidebar', 'windows-ptyxis', 'windows-app-menus', 'windows-nautilus-sidebar', 'windows-blur', 'docks', 'dock-transparent-in-overview', 'blur-rate', 'notifications', 'quick-settings', 'blur-radius', 'opacity', 'brightness', 'system-dialogs', 'notification-banners', 'app-folders', 'top-panel', 'window-switcher', 'osd-windows', 'workspace-switcher', 'screenshot-ui', 'popup-menus', 'overview-background', 'lock-screen', 'panel-opaque-dark', 'panel-opaque-light', 'panel-enabled-dark', 'panel-enabled-light'}
+assert set(keys) == {'windows-settings-sidebar', 'windows-ptyxis', 'windows-app-menus', 'windows-nautilus-sidebar', 'windows-blur', 'docks', 'dock-transparent-in-overview', 'blur-rate', 'notifications', 'quick-settings', 'blur-radius', 'opacity', 'brightness', 'system-dialogs', 'notification-banners', 'app-folders', 'top-panel', 'panel-extend-bottom', 'window-switcher', 'osd-windows', 'workspace-switcher', 'screenshot-ui', 'popup-menus', 'overview-background', 'lock-screen', 'panel-opaque-dark', 'panel-opaque-light', 'panel-enabled-dark', 'panel-enabled-light'}
 assert keys["dock-transparent-in-overview"].findtext("default") == "true"
-for key in ['windows-blur']:
+for key in ['windows-blur', 'panel-extend-bottom']:
     assert keys[key].findtext('default') == 'false'
 for module in ['backdropCapture.js', 'windowSurfaces.js', 'windowDamage.js']:
     assert module in (root / 'Makefile').read_text()

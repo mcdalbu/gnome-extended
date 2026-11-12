@@ -25,6 +25,11 @@
       <default>true</default>
       <summary>Barra superior</summary>
     </key>
+    <key name="panel-extend-bottom" type="b">
+      <default>false</default>
+      <summary>Estender o fundo da barra superior em 1 px</summary>
+      <description>Estende o fundo e o blur em um pixel lógico para baixo para cobrir lacunas, sem alterar a posição dos indicadores ou a área reservada para janelas.</description>
+    </key>
     <key name="window-switcher" type="b">
       <default>true</default>
       <summary>Alternador de janelas</summary>

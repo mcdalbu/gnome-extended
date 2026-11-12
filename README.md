@@ -38,7 +38,7 @@ migrada para os três switches sem sobrescrever escolhas novas.
 Baixe o ZIP na [release estável](https://github.com/mcdalbu/gnome-extended/releases/latest):
 
 ```sh
-gnome-extensions install --force gnome-extended@local_v34.zip
+gnome-extensions install --force gnome-extended@local_v35.zip
 ```
 
 Saia da sessão e entre novamente para carregar a atualização. O UUID continua
@@ -160,3 +160,5 @@ lançador são preservadas. O template é regenerado a partir do aplicativo
 instalado quando seu binário muda. Uma primeira abertura diretamente pelo comando
 `gnome-control-center`, fora da ativação D-Bus, não carrega esse overlay.
 O perfil foi validado com Configurações 51.1 / libadwaita 1.10.
+
+Na aba **Barra superior**, a opção **Estender o fundo em 1 px** cobre a lacuna na borda inferior com mais um pixel lógico de fundo e blur. É desativada por padrão e não altera a posição dos indicadores nem a área reservada para janelas. Segue a ativação da barra e do tema atual.

@@ -59,7 +59,7 @@ export default class GnomeExtended extends Extension {
             this._savePtyxisOpacity();
         if (key === 'opacity')
             this._queueOpacityWrites();
-        if (appearance || changed('top-panel', 'panel-enabled-dark', 'panel-enabled-light',
+        if (appearance || changed('top-panel', 'panel-extend-bottom', 'panel-enabled-dark', 'panel-enabled-light',
             'panel-opaque-dark', 'panel-opaque-light', 'system-dialogs', 'notification-banners',
             'app-folders', 'window-switcher', 'osd-windows', 'workspace-switcher',
             'screenshot-ui', 'popup-menus'))

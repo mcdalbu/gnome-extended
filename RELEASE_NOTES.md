@@ -1,3 +1,11 @@
+## Versão 35 — Extensão da borda inferior da barra
+
+- Nova opção **Estender o fundo em 1 px** na aba **Barra superior**, desativada por padrão.
+- Estende o fundo e o blur em um pixel lógico para baixo para cobrir lacunas, sem mover relógio e indicadores nem alterar a área reservada às janelas.
+- A alteração é aplicada ao alternar a opção e acompanha a ativação por tema da barra.
+
+Saia da sessão e entre novamente após instalar a atualização.
+
 ## Versão 34 — Saída das superfícies transitórias
 
 - O filtro dos banners e demais superfícies simples acompanha a opacidade realmente pintada. Reduz raio e alteração de brilho até o framebuffer original, pois efeitos BACKGROUND não obedecem apenas à opacidade do ator.

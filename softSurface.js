@@ -594,8 +594,12 @@ export class SoftSurface {
         // Avoid attaching the blur to the menu or its offscreen-rendered bin.
         const [x, y] = this.menu.box.get_transformed_position();
         const [width, height] = this.menu.box.get_transformed_size();
+        // Extend only the painted backdrop. Keep panel content and the Shell's
+        // reserved work area unchanged, and convert the extra stage pixel with
+        // the rest of the bounds so parent transforms are respected.
+        const extraBottom = this._options.panel && this._settings.get_boolean('panel-extend-bottom') ? 1 : 0;
         const [okStart, left, top] = parent.transform_stage_point(x, y);
-        const [okEnd, right, bottom] = parent.transform_stage_point(x + width, y + height);
+        const [okEnd, right, bottom] = parent.transform_stage_point(x + width, y + height + extraBottom);
         // BinLayout can position a zero-sized sibling at its center. Convert
         // parent coordinates into the backdrop group's local coordinates.
         const values = [left - this._group.x, top - this._group.y, right - left, bottom - top];
